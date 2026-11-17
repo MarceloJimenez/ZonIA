@@ -1,0 +1,17 @@
+[project]
+name = "zonia"
+version = "0.1.0"
+description = "Candidate screener AI agent for Grupo Sazón"
+readme = "README.md"
+authors = [
+    { name = "Marcelo Jiménez", email = "marcelojdf1@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+zonia = "zonia:main"
+
+[build-system]
+requires = ["uv_build>=0.9.13,<0.10.0"]
+build-backend = "uv_build"

@@ -7,10 +7,13 @@ authors = [
     { name = "Marcelo Jiménez", email = "marcelojdf1@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "openai>=3.57.0",
+    "python-dotenv>=1.2.4",
+]
 
 [project.scripts]
-zonia = "zonia:main"
+zonia = "zonia.main:main"
 
 [build-system]
 requires = ["uv_build>=0.9.13,<0.10.0"]

@@ -34,3 +34,4 @@ def main() -> None:
         fields = fields.model_copy(update=result.output.fields.model_dump(exclude_none=True))
         print(result.output.reply)
         print(fields)
+        print(result.output.intent)

@@ -1,9 +1,19 @@
 """Models for Zonia"""
 
 from datetime import date
+from enum import StrEnum
 from typing import Literal, Optional
 
 from pydantic import BaseModel
+
+
+class Intent(StrEnum):
+    NONE = "none"
+    CONTINUE = "continue"
+    NOT_NOW = "not_now"
+    NOT_INTERESTED = "not_interested"
+    CONFIRMS_SUMMARY = "confirms_summary"
+    CORRECTS_SUMMARY = "corrects_summary"
 
 
 class ScreeningFields(BaseModel):
@@ -26,5 +36,7 @@ class ScreeningFields(BaseModel):
 
 class Turn(BaseModel):
     fields: ScreeningFields
+
+    intent: Intent
 
     reply: str

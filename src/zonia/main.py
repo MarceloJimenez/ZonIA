@@ -5,7 +5,8 @@ from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from zonia.models import ScreeningFields, Turn
+from zonia.flow import FINAL_STATUSES, decide
+from zonia.models import ScreeningFields, Stage, Status, Turn
 
 load_dotenv(".env")
 
@@ -27,11 +28,14 @@ agent = Agent(model, output_type=Turn, instructions=SYSTEM)
 def main() -> None:
     history = []
     fields = ScreeningFields()
-    while True:
+    stage = Stage.INTRODUCTION
+    status = Status.ACTIVE
+    while status not in FINAL_STATUSES:
         text = input("> ")
         result = agent.run_sync(text, message_history=history)
         history = result.all_messages()
         fields = fields.model_copy(update=result.output.fields.model_dump(exclude_none=True))
+        stage, status = decide(stage, status, result.output.intent, fields)
         print(result.output.reply)
         print(fields)
-        print(result.output.intent)
+        print(f"intent={result.output.intent} stage={stage} status={status}")

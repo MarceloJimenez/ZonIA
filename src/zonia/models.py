@@ -7,6 +7,21 @@ from typing import Literal, Optional
 from pydantic import BaseModel
 
 
+class Stage(StrEnum):
+    INTRODUCTION = "introduction"
+    DATA_COLLECTION = "data_collection"
+    CLOSING = "closing"
+
+
+class Status(StrEnum):
+    ACTIVE = "active"
+    PAUSED = "paused"
+    QUALIFIED = "qualified"
+    DISQUALIFIED = "disqualified"
+    WITHDRAWN = "withdrawn"
+    INCOMPLETE = "incomplete"
+
+
 class Intent(StrEnum):
     NONE = "none"
     CONTINUE = "continue"

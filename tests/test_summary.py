@@ -1,0 +1,80 @@
+"""The summary the candidate confirms must show their data exactly, in Spanish."""
+
+from datetime import date
+
+import pytest
+
+from zonia.flow import render_summary
+from zonia.models import ScreeningFields
+
+ANA = ScreeningFields(
+    full_name="Ana López",
+    driver_license=True,
+    city_zone="Chamberí, Madrid",
+    availability=["full-time", "weekends"],
+    schedule=["morning", "flexible"],
+    experience_years=2,
+    experience_platform="Glovo",
+    start_date=date(2026, 12, 1),
+)
+
+
+def test_every_value_appears_next_to_its_label():
+    lines = render_summary(ANA).splitlines()
+    for line in [
+        "- Nombre: Ana López",
+        "- Carnet de conducir: Sí",
+        "- Zona: Chamberí, Madrid",
+        "- Disponibilidad: Tiempo completo, Fines de semana",
+        "- Horario: Mañana, Flexible",
+        "- Experiencia: 2 años",
+        "- Plataforma: Glovo",
+        "- Fecha de inicio: 1 de diciembre de 2026",
+    ]:
+        assert line in lines
+
+
+@pytest.mark.parametrize(
+    ("code", "label"),
+    [("full-time", "Tiempo completo"), ("part-time", "Medio tiempo"), ("weekends", "Fines de semana")],
+)
+def test_every_availability_is_shown_in_spanish(code, label):
+    lines = render_summary(ANA.model_copy(update={"availability": [code]})).splitlines()
+    assert f"- Disponibilidad: {label}" in lines
+
+
+@pytest.mark.parametrize(
+    ("code", "label"),
+    [("morning", "Mañana"), ("afternoon", "Tarde"), ("evening", "Noche"), ("flexible", "Flexible")],
+)
+def test_every_schedule_is_shown_in_spanish(code, label):
+    lines = render_summary(ANA.model_copy(update={"schedule": [code]})).splitlines()
+    assert f"- Horario: {label}" in lines
+
+
+def test_licence_no_is_shown_as_no():
+    text = render_summary(ANA.model_copy(update={"driver_license": False}))
+    assert "Carnet de conducir: No" in text
+
+
+def test_platform_is_hidden_when_there_is_no_experience():
+    # The LLM may still extract a platform word ("ninguna"); it must not reach the summary.
+    text = render_summary(ANA.model_copy(update={"experience_years": 0, "experience_platform": "ninguna"}))
+    assert "Plataforma" not in text
+    assert "0 años" in text
+
+
+def test_one_year_is_singular():
+    assert "1 año\n" in render_summary(ANA.model_copy(update={"experience_years": 1}))
+
+
+def test_half_years_use_a_decimal_comma():
+    assert "1,5 años" in render_summary(ANA.model_copy(update={"experience_years": 1.5}))
+
+
+def test_summary_greets_by_first_name():
+    assert render_summary(ANA).startswith("Perfecto, Ana.")
+
+
+def test_summary_asks_for_confirmation():
+    assert render_summary(ANA).rstrip().endswith("¿Está todo correcto?")

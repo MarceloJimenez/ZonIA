@@ -44,6 +44,10 @@ Code checks are used for everything that can be measured exactly. The LLM judge 
 | `no_licence_in_first_message` | The same, when it comes with the name. |
 | `zone_outside_the_list` | "Vivo en Salamanca" (a region with no service) disqualifies, and the reply gives the reason kindly. |
 | `reopens_after_outside_zone` | A candidate disqualified by zone who then says "Barcelona" goes back to data collection, with the zone "Cataluña". |
+| `first_name_only` | "Soy Ana" is not saved: the name needs a surname. The conversation stays in introduction and Sonia asks for the surname. |
+| `vague_zone` | "Cerca del centro" saves no zone and does not disqualify. Sonia asks for the city. |
+| `past_start_date` | A date in the past is not saved. Sonia says it has passed and asks for a new one. |
+| `start_tomorrow` | "Mañana" becomes tomorrow's date, because the turn is told today's date. |
 | `full_run_qualified` | Six messages, all fields extracted, summary by code, qualified. |
 | `corrects_the_summary` | A correction shows a new summary with the new value. |
 | `everything_in_first_message` | All data in one message gives the summary at once. |

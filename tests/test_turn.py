@@ -61,7 +61,7 @@ def test_an_ordinary_turn_uses_one_call_and_keeps_its_reply():
     assert (turn.reply, turn.llm_calls, turn.reply_source) == (CALL_1_REPLY, 1, "call_1")
     assert conversation.fields.full_name == "Ana López"
     # Call 1 is told what is known and what is missing, from the fields before this turn.
-    assert turn_instructions(ScreeningFields()) in fake.instructions[0]
+    assert turn_instructions(ScreeningFields(), date.today()) in fake.instructions[0]
 
 
 # Each status with a directive, and how a candidate reaches it in one turn.
@@ -243,3 +243,49 @@ def test_a_candidate_disqualified_by_zone_reopens_with_a_place_in_a_service_zone
     turn = asyncio.run(run_turn(make_agent(fake), conversation, "Perdón, vivo en Vigo"))
     assert (turn.status, turn.stage, turn.reply_source) == (Status.ACTIVE, Stage.CLOSING, "summary")
     assert "Zona: Vigo" in turn.reply
+
+
+# --- Invalid values ---------------------------------------------------------
+# The candidate's errors: code does not save the value, and call 2 asks again.
+
+
+def test_an_invalid_value_is_not_saved_and_call_2_asks_again():
+    past = (date.today() - timedelta(days=5)).isoformat()
+    fake = FakeLLM([{"fields": {"start_date": past, "availability": ["full-time"]}}])
+    conversation = Conversation(fields=ScreeningFields(full_name="Ana López", driver_license=True))
+    turn = asyncio.run(run_turn(make_agent(fake), conversation, "Tiempo completo, empiezo el lunes pasado"))
+    assert conversation.fields.start_date is None
+    assert conversation.fields.availability == ["full-time"]  # the valid value in the same message is kept
+    assert (turn.reply, turn.llm_calls, turn.invalid_fields) == (CALL_2_REPLY, 2, ["start_date"])
+    assert "fecha en que puede empezar" in fake.instructions[-1]
+
+
+def test_an_invalid_correction_keeps_the_earlier_value():
+    conversation = Conversation(fields=COMPLETE, stage=Stage.CLOSING)
+    past = (date.today() - timedelta(days=5)).isoformat()
+    fake = FakeLLM([{"fields": {"start_date": past}, "intent": "corrects_summary"}])
+    turn = asyncio.run(run_turn(make_agent(fake), conversation, "No, empiezo el lunes pasado"))
+    assert conversation.fields.start_date == START
+    assert turn.reply_source == "call_2"  # not the summary: the candidate must hear what is wrong
+
+
+def test_a_first_name_alone_keeps_the_candidate_in_introduction():
+    fake = FakeLLM([{"fields": {"full_name": "Ana"}}])
+    conversation = Conversation()
+    turn = asyncio.run(run_turn(make_agent(fake), conversation, "Soy Ana"))
+    assert conversation.fields.full_name is None
+    assert (turn.stage, turn.reply_source) == (Stage.INTRODUCTION, "call_2")
+    assert "apellido" in fake.instructions[-1]
+
+
+def test_a_new_status_wins_over_an_invalid_value():
+    fake = FakeLLM([{"fields": {"full_name": "Luis", "driver_license": False}}])
+    turn = asyncio.run(run_turn(make_agent(fake), Conversation(), "Soy Luis y no tengo carnet"))
+    assert turn.status == Status.DISQUALIFIED
+    assert DIRECTIVES[Status.DISQUALIFIED] in fake.instructions[-1]
+
+
+def test_call_1_is_told_today_s_date():
+    fake = FakeLLM([{}])
+    asyncio.run(run_turn(make_agent(fake), Conversation(), "Hola", today=date(2026, 11, 22)))
+    assert "domingo, 22 de noviembre de 2026" in fake.instructions[0]

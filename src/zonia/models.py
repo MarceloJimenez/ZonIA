@@ -41,7 +41,13 @@ class ScreeningFields(BaseModel):
 
     driver_license: Optional[bool] = None
 
-    city_zone: Optional[str] = Field(None, description="Lugar donde vive, con las palabras del candidato.")
+    city_zone: Optional[str] = Field(
+        None,
+        description=(
+            "Lugar donde vive, con las palabras del candidato. Si es vago (por ejemplo \"cerca del centro\"), "
+            "déjalo vacío, deja vacío service_zone y pregunta la ciudad y el barrio."
+        ),
+    )
 
     # Filled together with city_zone. turn_model() narrows it to the country's zones.
     service_zone: Optional[str] = None

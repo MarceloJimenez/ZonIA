@@ -1,7 +1,9 @@
 """Text sent to the LLM: the system prompt, the per-turn instructions and the directives for call 2."""
 
 from zonia.config import PERSONALITY
-from zonia.flow import AVAILABILITY_ES, FIELD_ORDER, SCHEDULE_ES, open_fields
+from zonia.flow import AVAILABILITY_ES, FIELD_ORDER, MONTHS_ES, SCHEDULE_ES, open_fields
+from datetime import date
+
 from zonia.models import ScreeningFields, Status
 
 # Same for every client. Design: docs/plans/Process design draft.md, section 2.
@@ -69,6 +71,24 @@ def directive(status: Status, fields: ScreeningFields) -> str | None:
     return DIRECTIVES.get(status)
 
 
+def invalid_directive(problems: dict[str, str]) -> str:
+    """The instruction for call 2 when code dropped a value the candidate gave."""
+    lines = [f"- {FIELD_LABELS_ES[name]}: {reason}" for name, reason in problems.items()]
+    return "\n".join([
+        "Estos datos del candidato no son válidos y no se han guardado:",
+        *lines,
+        "Dile en una frase qué esperas y vuelve a preguntar solo por esos datos. "
+        "No digas que los has anotado.",
+    ])
+
+
+DAYS_ES = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+
+
+def _today_es(today: date) -> str:
+    return f"Hoy es {DAYS_ES[today.weekday()]}, {today.day} de {MONTHS_ES[today.month - 1]} de {today.year} ({today.isoformat()})."
+
+
 def _value_es(name: str, value: object) -> str:
     if isinstance(value, bool):
         return "sí" if value else "no"
@@ -79,15 +99,15 @@ def _value_es(name: str, value: object) -> str:
     return str(value)
 
 
-def turn_instructions(fields: ScreeningFields) -> str:
-    """What call 1 must know this turn: the known fields and the open ones, in order."""
+def turn_instructions(fields: ScreeningFields, today: date) -> str:
+    """What call 1 must know this turn: today's date, the known fields and the open ones, in order."""
     known = [
         f"- {FIELD_LABELS_ES[name]}: {_value_es(name, getattr(fields, name))}"
         for name in FIELD_ORDER
         if getattr(fields, name) is not None
     ]
     missing = [f"{i}. {FIELD_LABELS_ES[name]}" for i, name in enumerate(open_fields(fields), start=1)]
-    parts = []
+    parts = [_today_es(today)]
     if known:
         parts.append("Ya sabes:\n" + "\n".join(known))
     if missing:

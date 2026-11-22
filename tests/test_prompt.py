@@ -6,6 +6,8 @@ from zonia.config import PERSONALITY
 from zonia.prompt import DIRECTIVES, FIXED_RULES, SYSTEM, ZONE_DIRECTIVE, build_system, turn_instructions
 from zonia.models import ScreeningFields, Status
 
+TODAY = date(2026, 11, 22)
+
 
 def _missing_section(text: str) -> str:
     # Fails the test when the section is absent, so "x not in missing" cannot pass on an empty text.
@@ -16,7 +18,7 @@ def _missing_section(text: str) -> str:
 
 def test_known_data_is_never_listed_as_missing():
     fields = ScreeningFields(full_name="Ana López", driver_license=True, city_zone="Chamberí")
-    missing = _missing_section(turn_instructions(fields))
+    missing = _missing_section(turn_instructions(fields, TODAY))
     assert "nombre" not in missing
     assert "carnet" not in missing
     assert "zona" not in missing
@@ -24,14 +26,14 @@ def test_known_data_is_never_listed_as_missing():
 
 def test_known_values_are_given_to_the_llm():
     fields = ScreeningFields(full_name="Ana López", driver_license=True, availability=["part-time"])
-    text = turn_instructions(fields)
+    text = turn_instructions(fields, TODAY)
     assert "Ana López" in text
     assert "Medio tiempo" in text
 
 
 def test_missing_fields_are_listed_in_order():
     # With some experience, the platform comes right after it, before the start date.
-    missing = _missing_section(turn_instructions(ScreeningFields(full_name="Ana", experience_years=3)))
+    missing = _missing_section(turn_instructions(ScreeningFields(full_name="Ana", experience_years=3), TODAY))
     assert missing.splitlines() == [
         "1. si tiene carnet de conducir vigente",
         "2. ciudad y zona donde vive",
@@ -43,8 +45,8 @@ def test_missing_fields_are_listed_in_order():
 
 
 def test_platform_is_asked_only_after_some_experience():
-    assert "plataforma" not in turn_instructions(ScreeningFields(full_name="Ana", experience_years=0))
-    assert "plataforma" in _missing_section(turn_instructions(ScreeningFields(full_name="Ana", experience_years=3)))
+    assert "plataforma" not in turn_instructions(ScreeningFields(full_name="Ana", experience_years=0), TODAY)
+    assert "plataforma" in _missing_section(turn_instructions(ScreeningFields(full_name="Ana", experience_years=3), TODAY))
 
 
 def test_nothing_missing_when_complete():
@@ -52,7 +54,7 @@ def test_nothing_missing_when_complete():
         full_name="Ana", driver_license=True, city_zone="Chamberí", availability=["full-time"],
         schedule=["morning"], experience_years=0, start_date=date(2026, 12, 1),
     )
-    assert "Falta" not in turn_instructions(fields)
+    assert "Falta" not in turn_instructions(fields, TODAY)
 
 
 # --- System prompt ----------------------------------------------------------

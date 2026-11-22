@@ -17,7 +17,8 @@ NO_REPEATED_QUESTION = Judge(
     "Sonia never asks the candidate for information the candidate already gave, earlier in the "
     "conversation or in the same message. Asking again for something not answered yet is fine. "
     "Showing a summary of the data and asking to confirm it is not a repeated question. "
-    "Naming a requirement to explain why the candidate cannot continue is not a question.",
+    "Naming a requirement to explain why the candidate cannot continue is not a question. "
+    "Asking again for a value that was not valid (for example a date in the past) is fine.",
 )
 SAYS_DISQUALIFIED = Judge(
     "follows directive",
@@ -140,6 +141,43 @@ CASES = [
             FieldsExtracted({"city_zone": "Barcelona", "service_zone": "Cataluña"}),
             FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
         ),
+    ),
+    # --- Values that are not valid ---
+    Case(
+        name="first_name_only",
+        inputs=Script(messages=["Hola, soy Ana"]),
+        evaluators=(
+            FieldsExtracted({"full_name": None}),
+            FinalState(Status.ACTIVE, Stage.INTRODUCTION),
+            Judge("asks for the surname", "Sonia's last reply asks the candidate for their surname."),
+        ),
+    ),
+    Case(
+        name="vague_zone",
+        inputs=Script(messages=["Hola, soy Ana López", "Sí, tengo carnet y vivo cerca del centro"]),
+        evaluators=(
+            FieldsExtracted({"driver_license": True, "city_zone": None, "service_zone": None}),
+            FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
+            Judge("asks for the city", "Sonia's last reply asks the candidate in which city or neighborhood they live."),
+        ),
+    ),
+    Case(
+        name="past_start_date",
+        inputs=Script(messages=[*ANA[:4], "Puedo empezar el 3 de marzo de 2025"]),
+        evaluators=(
+            FieldsExtracted({"start_date": None}),
+            FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
+            Judge(
+                "asks for a new date",
+                "Sonia's last reply says that the date has already passed and asks for a new start date. "
+                "It does not show a summary.",
+            ),
+        ),
+    ),
+    Case(
+        name="start_tomorrow",
+        inputs=Script(messages=[*ANA[:4], "Puedo empezar mañana"]),
+        evaluators=(FieldsExtracted({"start_date": in_days(1)}), SummaryAt(4)),
     ),
     Case(
         name="full_run_qualified",

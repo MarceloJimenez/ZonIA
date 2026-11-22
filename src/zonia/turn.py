@@ -2,12 +2,14 @@
 
 1. Call 1: the LLM returns the fields, the intent and a reply.
 2. Code merges the fields and decides the new stage and status.
-3. If the status changed and a directive exists: call 2 writes the reply again.
+3. Code checks the new values (zonia.validation). An invalid value is not saved.
+4. If the status changed and a directive exists, or a value was not valid: call 2 writes the reply again.
    If the conversation enters closing, the candidate corrects the summary, or a closed
    conversation reopens in closing: code writes the summary and no extra call is made.
 """
 
 from dataclasses import dataclass, field
+from datetime import date
 
 from pydantic import BaseModel
 from pydantic_ai import Agent
@@ -15,7 +17,8 @@ from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, Text
 
 from zonia.flow import FINAL_STATUSES, decide, render_summary
 from zonia.models import Intent, ScreeningFields, Stage, Status, Turn, turn_model
-from zonia.prompt import directive, turn_instructions
+from zonia.prompt import directive, invalid_directive, turn_instructions
+from zonia.validation import validate
 
 
 @dataclass
@@ -39,19 +42,30 @@ class TurnResult(BaseModel):
     status: Status
     llm_calls: int
     reply_source: str  # "call_1", "call_2" or "summary"
+    invalid_fields: list[str] = []  # values the candidate gave that code dropped
 
 
-async def run_turn(agent: Agent[None, Turn], conversation: Conversation, text: str) -> TurnResult:
+async def run_turn(
+    agent: Agent[None, Turn], conversation: Conversation, text: str, today: date | None = None
+) -> TurnResult:
     """Run one turn and update the conversation.
 
     The conversation changes only at the end, so a turn that raises
     (for example, a rate-limit error) leaves it as it was and can be retried.
     """
     c = conversation
+    today = today or date.today()
     result = await agent.run(
-        text, message_history=c.history, output_type=turn_model(c.country), instructions=turn_instructions(c.fields)
+        text,
+        message_history=c.history,
+        output_type=turn_model(c.country),
+        instructions=turn_instructions(c.fields, today),
     )
-    fields = c.fields.model_copy(update=result.output.fields.model_dump(exclude_none=True))
+    # An invalid value is not saved: the field stays empty, or keeps its earlier value.
+    new_values = result.output.fields.model_dump(exclude_none=True)
+    problems = validate(ScreeningFields(**new_values), today)
+    valid = {name: value for name, value in new_values.items() if name not in problems}
+    fields = c.fields.model_copy(update=valid)
     intent = result.output.intent
     stage, status = decide(c.stage, c.status, intent, fields)
     show_summary = (
@@ -60,10 +74,12 @@ async def run_turn(agent: Agent[None, Turn], conversation: Conversation, text: s
         and (c.stage != Stage.CLOSING or intent == Intent.CORRECTS_SUMMARY or c.status in FINAL_STATUSES)
     )
 
-    status_directive = directive(status, fields)
-    if status != c.status and status_directive:
+    # Call 2 replaces the reply: a new status first, then a value to ask again.
+    status_directive = directive(status, fields) if status != c.status else None
+    call_2_directive = status_directive or (invalid_directive(problems) if problems else None)
+    if call_2_directive:
         result_2 = await agent.run(
-            text, message_history=c.history, output_type=str, instructions=status_directive
+            text, message_history=c.history, output_type=str, instructions=call_2_directive
         )
         reply, history, calls, source = result_2.output, result_2.all_messages(), 2, "call_2"
     elif show_summary:
@@ -80,5 +96,5 @@ async def run_turn(agent: Agent[None, Turn], conversation: Conversation, text: s
     c.history, c.fields, c.stage, c.status = history, fields, stage, status
     return TurnResult(
         message=text, reply=reply, intent=intent, stage=stage, status=status,
-        llm_calls=calls, reply_source=source,
+        llm_calls=calls, reply_source=source, invalid_fields=list(problems),
     )

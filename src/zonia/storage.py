@@ -1,7 +1,7 @@
 """SQLite storage: conversations and their messages.
 
 One row per conversation keeps everything run_turn needs to continue it:
-country, stage, status, the fields and the LLM history (both as JSON).
+country, stage, status, language, the fields and the LLM history (both as JSON).
 The messages table keeps what the candidate wrote and what Sonia replied, in order.
 """
 
@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS conversations (
     failed_turns INTEGER NOT NULL,
     case_code TEXT NOT NULL UNIQUE,
     turns INTEGER NOT NULL,
+    language TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -94,8 +95,8 @@ class Storage:
         with self.db:
             cursor = self.db.execute(
                 "INSERT INTO conversations"
-                " (country, stage, status, fields, history, failed_turns, case_code, turns, created_at, updated_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " (country, stage, status, fields, history, failed_turns, case_code, turns, language, created_at, updated_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (conversation.country, *self._state(conversation), now, now),
             )
             self.db.executemany(
@@ -118,6 +119,7 @@ class Storage:
             failed_turns=row["failed_turns"],
             case_code=row["case_code"],
             turns=row["turns"],
+            language=row["language"],
         )
 
     def save_turn(self, conversation_id: int, conversation: Conversation, turn: TurnResult) -> None:
@@ -129,7 +131,7 @@ class Storage:
         with self.db:
             updated = self.db.execute(
                 "UPDATE conversations SET stage = ?, status = ?, fields = ?, history = ?, failed_turns = ?,"
-                " case_code = ?, turns = ?, updated_at = ? WHERE id = ?",
+                " case_code = ?, turns = ?, language = ?, updated_at = ? WHERE id = ?",
                 (*self._state(conversation), now, conversation_id),
             )
             if updated.rowcount == 0:
@@ -178,7 +180,7 @@ class Storage:
         return [(row["role"], row["text"]) for row in rows]
 
     @staticmethod
-    def _state(c: Conversation) -> tuple[str, str, str, str, int, str | None, int]:
-        """stage, status, fields, history, failed_turns, case_code and turns, as stored in the conversations row."""
+    def _state(c: Conversation) -> tuple[str, str, str, str, int, str | None, int, str]:
+        """stage, status, fields, history, failed_turns, case_code, turns and language, as stored in the conversations row."""
         history = ModelMessagesTypeAdapter.dump_json(c.history).decode()
-        return c.stage.value, c.status.value, c.fields.model_dump_json(), history, c.failed_turns, c.case_code, c.turns
+        return c.stage.value, c.status.value, c.fields.model_dump_json(), history, c.failed_turns, c.case_code, c.turns, c.language

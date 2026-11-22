@@ -84,31 +84,67 @@ MONTHS_ES = [
 ]
 
 
-def render_summary(fields: ScreeningFields) -> str:
-    """The summary message, one field per line, in Spanish.
+AVAILABILITY_EN = {"full-time": "Full-time", "part-time": "Part-time", "weekends": "Weekends"}
+
+SCHEDULE_EN = {"morning": "Morning", "afternoon": "Afternoon", "evening": "Evening", "flexible": "Flexible"}
+
+MONTHS_EN = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+]
+
+# The words of the summary, per language.
+SUMMARY_TEXT = {
+    "es": {
+        "name": "Nombre", "license": "Carnet de conducir", "yes": "Sí", "no": "No", "zone": "Zona",
+        "availability": "Disponibilidad", "schedule": "Horario", "experience": "Experiencia",
+        "year": "año", "years": "años", "platform": "Plataforma", "start": "Fecha de inicio",
+        "opening": "Perfecto{name}. Estos son tus datos:", "question": "¿Está todo correcto?",
+    },
+    "en": {
+        "name": "Name", "license": "Driving licence", "yes": "Yes", "no": "No", "zone": "Area",
+        "availability": "Availability", "schedule": "Schedule", "experience": "Experience",
+        "year": "year", "years": "years", "platform": "Platform", "start": "Start date",
+        "opening": "Great{name}. Here are your details:", "question": "Is everything correct?",
+    },
+}
+AVAILABILITY = {"es": AVAILABILITY_ES, "en": AVAILABILITY_EN}
+SCHEDULE = {"es": SCHEDULE_ES, "en": SCHEDULE_EN}
+
+
+def _date(d, language: str) -> str:
+    if language == "en":
+        return f"{MONTHS_EN[d.month - 1]} {d.day}, {d.year}"
+    return f"{d.day} de {MONTHS_ES[d.month - 1]} de {d.year}"
+
+
+def render_summary(fields: ScreeningFields, language: str = "es") -> str:
+    """The summary message, one field per line, in Spanish ("es") or English ("en").
 
     Code renders it so the data is exact. The LLM never types it.
     """
+    t = SUMMARY_TEXT[language]
     lines = []
     if fields.full_name is not None:
-        lines.append(f"- Nombre: {fields.full_name}")
+        lines.append(f"- {t['name']}: {fields.full_name}")
     if fields.driver_license is not None:
-        lines.append(f"- Carnet de conducir: {'Sí' if fields.driver_license else 'No'}")
+        lines.append(f"- {t['license']}: {t['yes'] if fields.driver_license else t['no']}")
     if fields.city_zone is not None:
-        lines.append(f"- Zona: {fields.city_zone}")
+        lines.append(f"- {t['zone']}: {fields.city_zone}")
     if fields.availability:
-        lines.append(f"- Disponibilidad: {', '.join(AVAILABILITY_ES[a] for a in fields.availability)}")
+        lines.append(f"- {t['availability']}: {', '.join(AVAILABILITY[language][a] for a in fields.availability)}")
     if fields.schedule:
-        lines.append(f"- Horario: {', '.join(SCHEDULE_ES[s] for s in fields.schedule)}")
+        lines.append(f"- {t['schedule']}: {', '.join(SCHEDULE[language][s] for s in fields.schedule)}")
     if fields.experience_years is not None:
-        unit = "año" if fields.experience_years == 1 else "años"
-        years = f"{fields.experience_years:g}".replace(".", ",")
-        lines.append(f"- Experiencia: {years} {unit}")
+        unit = t["year"] if fields.experience_years == 1 else t["years"]
+        years = f"{fields.experience_years:g}"
+        if language == "es":
+            years = years.replace(".", ",")
+        lines.append(f"- {t['experience']}: {years} {unit}")
         if fields.experience_years > 0 and fields.experience_platform is not None:
-            lines.append(f"- Plataforma: {fields.experience_platform}")
+            lines.append(f"- {t['platform']}: {fields.experience_platform}")
     if fields.start_date is not None:
-        d = fields.start_date
-        lines.append(f"- Fecha de inicio: {d.day} de {MONTHS_ES[d.month - 1]} de {d.year}")
+        lines.append(f"- {t['start']}: {_date(fields.start_date, language)}")
     first_name = fields.full_name.split()[0] if fields.full_name else ""
-    opening = f"Perfecto, {first_name}. Estos son tus datos:" if first_name else "Perfecto. Estos son tus datos:"
-    return "\n".join([opening, *lines, "¿Está todo correcto?"])
+    opening = t["opening"].format(name=f", {first_name}" if first_name else "")
+    return "\n".join([opening, *lines, t["question"]])

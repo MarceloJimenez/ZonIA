@@ -23,7 +23,7 @@ def storage(tmp_path):
 
 def test_a_new_conversation_loads_back_the_same(storage):
     conversation = Conversation(
-        fields=COMPLETE, stage=Stage.CLOSING, status=Status.DISQUALIFIED, country="MX", failed_turns=2, case_code="K7PX-3QMD", turns=7,
+        fields=COMPLETE, stage=Stage.CLOSING, status=Status.DISQUALIFIED, country="MX", failed_turns=2, case_code="K7PX-3QMD", turns=7, language="en",
     )
     loaded = storage.load(storage.create(conversation))
     assert loaded == conversation
@@ -84,7 +84,7 @@ def test_a_failed_turn_keeps_the_candidate_message_and_the_failure_count(storage
     turn = asyncio.run(run_turn_safely(make_agent(FailingLLM([http(400)])), conversation, "Soy Ana López"))
     storage.save_turn(conversation_id, conversation, turn)
 
-    assert storage.messages(conversation_id) == [("candidate", "Soy Ana López"), ("agent", FAILURE_REPLY)]
+    assert storage.messages(conversation_id) == [("candidate", "Soy Ana López"), ("agent", FAILURE_REPLY["es"])]
     assert storage.load(conversation_id).failed_turns == 1
 
 

@@ -41,7 +41,7 @@ class FakeLLM:
     def __call__(self, messages, info: AgentInfo) -> ModelResponse:
         self.instructions.append(info.instructions or "")
         if info.output_tools:  # call 1 asks for a Turn
-            args = {"reply": CALL_1_REPLY, "intent": "none", "fields": {}} | self.turns.pop(0)
+            args = {"reply": CALL_1_REPLY, "intent": "none", "language": "es", "fields": {}} | self.turns.pop(0)
             return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, json.dumps(args))])
         return ModelResponse(parts=[TextPart(CALL_2_REPLY)])  # call 2 asks for text
 
@@ -169,7 +169,7 @@ def test_a_failed_llm_call_leaves_the_conversation_unchanged():
     # A rate-limit error in call 2 must not leave half a turn saved; the turn can be retried.
     def broken(messages, info):
         if info.output_tools:
-            args = {"reply": "x", "intent": "none", "fields": {"full_name": "Luis", "driver_license": False}}
+            args = {"reply": "x", "intent": "none", "language": "es", "fields": {"full_name": "Luis", "driver_license": False}}
             return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, json.dumps(args))])
         raise RuntimeError("503 from the provider")
 

@@ -13,7 +13,7 @@ from zonia.turn import Conversation, TurnResult
 def turn(message: str, reply: str) -> TurnResult:
     return TurnResult(
         message=message, reply=reply, intent="none", stage=Stage.DATA_COLLECTION,
-        status=Status.ACTIVE, llm_calls=1, reply_source="call_1",
+        status=Status.ACTIVE, language="es", llm_calls=1, reply_source="call_1",
     )
 
 

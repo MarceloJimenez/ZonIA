@@ -63,10 +63,21 @@ class ScreeningFields(BaseModel):
     start_date: Optional[date] = None
 
 
+Language = Literal["es", "en"]  # the languages Sonia speaks (docs/ASSIGNMENT.md:94)
+
+
 class Turn(BaseModel):
     fields: ScreeningFields
 
     intent: Intent
+
+    language: Language = Field(
+        description=(
+            "Idioma del último mensaje del candidato, sin mirar los anteriores: es (español) o en (inglés). "
+            "Si mezcla los dos, el que más palabras tiene: \"Yes, I live in Madrid, gracias\" es en. "
+            "Si escribe en otro idioma, el idioma actual de la conversación."
+        )
+    )
 
     reply: str
 

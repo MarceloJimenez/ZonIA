@@ -53,6 +53,19 @@ class FieldsExtracted(Evaluator[Script, Transcript, None]):
 
 
 @dataclass
+class LanguageAt(Evaluator[Script, Transcript, None]):
+    """The language call 1 gave for the given turn (0 = first message): "es" or "en"."""
+
+    turn: int
+    language: str
+
+    def evaluate(self, ctx: Ctx) -> dict[str, EvaluationReason]:
+        turns = ctx.output.turns
+        got = turns[self.turn].language if self.turn < len(turns) else None
+        return {f"language turn {self.turn}": EvaluationReason(got == self.language, f"expected {self.language}, got {got}")}
+
+
+@dataclass
 class StatusAt(Evaluator[Script, Transcript, None]):
     """The status after the given turn (0 = first message). Shows that a reopened case was really closed first."""
 

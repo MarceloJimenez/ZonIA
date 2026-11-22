@@ -7,6 +7,9 @@
    If the conversation enters closing, the candidate corrects the summary, or a closed
    conversation reopens in closing: code writes the summary and no extra call is made.
 5. A new disqualification: code adds the review email and the case code to the reply.
+
+Call 1 also says the candidate's language (Spanish or English). The reply, the summary
+and the fixed texts written by code use it.
 """
 
 import asyncio
@@ -24,7 +27,7 @@ from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, Text
 from zonia.config import GREETING, MAX_TURNS, contact_email_for
 from zonia.flow import FINAL_STATUSES, decide, render_summary
 from zonia.models import Intent, ScreeningFields, Stage, Status, Turn, turn_model
-from zonia.prompt import directive, invalid_directive, turn_instructions
+from zonia.prompt import directive, invalid_directive, reply_language, turn_instructions
 from zonia.validation import validate
 
 
@@ -40,9 +43,13 @@ class Conversation:
     failed_turns: int = 0  # turns in a row that ended in a technical failure
     case_code: str | None = None  # storage gives it; the candidate gets it on disqualification
     turns: int = 0  # candidate messages so far, failed turns included
+    language: str = "es"  # "es" or "en": the language of the candidate's last message
 
 
-REVIEW_REPLY = "Si quieres que una persona revise tu caso, escribe a {email} con el código {code}."
+REVIEW_REPLY = {
+    "es": "Si quieres que una persona revise tu caso, escribe a {email} con el código {code}.",
+    "en": "If you want a person to review your case, write to {email} with the code {code}.",
+}
 
 # No 0/O and no 1/I: a candidate types the code into an email. 32^8 is more than a trillion codes.
 CASE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -71,6 +78,7 @@ class TurnResult(BaseModel):
     intent: Intent
     stage: Stage
     status: Status
+    language: str  # "es" or "en": the language of the reply
     llm_calls: int  # 0 when the turn failed ("fallback") or the turn limit was reached ("limit")
     reply_source: str  # "call_1", "call_2", "summary", "fallback" or "limit"
     invalid_fields: list[str] = []  # values the candidate gave that code dropped
@@ -90,7 +98,7 @@ async def run_turn(
         text,
         message_history=c.history,
         output_type=turn_model(c.country),
-        instructions=turn_instructions(c.fields, today),
+        instructions=turn_instructions(c.fields, today, language=c.language),
     )
     # An invalid value is not saved: the field stays empty, or keeps its earlier value.
     new_values = result.output.fields.model_dump(exclude_none=True)
@@ -98,6 +106,7 @@ async def run_turn(
     valid = {name: value for name, value in new_values.items() if name not in problems}
     fields = c.fields.model_copy(update=valid)
     intent = result.output.intent
+    language = result.output.language
     stage, status = decide(c.stage, c.status, intent, fields)
     show_summary = (
         stage == Stage.CLOSING
@@ -110,11 +119,12 @@ async def run_turn(
     call_2_directive = status_directive or (invalid_directive(problems) if problems else None)
     if call_2_directive:
         result_2 = await agent.run(
-            text, message_history=c.history, output_type=str, instructions=call_2_directive
+            text, message_history=c.history, output_type=str,
+            instructions=f"{call_2_directive}\n\n{reply_language(language)}",
         )
         reply, history, calls, source = result_2.output, result_2.all_messages(), 2, "call_2"
     elif show_summary:
-        reply = render_summary(fields)
+        reply = render_summary(fields, language)
         history = [
             *c.history,
             ModelRequest(parts=[UserPromptPart(content=text)]),
@@ -130,13 +140,13 @@ async def run_turn(
     case_code = c.case_code
     if status == Status.DISQUALIFIED and status != c.status:
         case_code = case_code or new_case_code()
-        reply = f"{reply}\n\n{REVIEW_REPLY.format(email=contact_email_for(c.country), code=case_code)}"
+        reply = f"{reply}\n\n{REVIEW_REPLY[language].format(email=contact_email_for(c.country), code=case_code)}"
         history = [*history[:-1], replace(history[-1], parts=[TextPart(content=reply)])]
 
     c.history, c.fields, c.stage, c.status, c.failed_turns = history, fields, stage, status, 0
-    c.case_code = case_code
+    c.case_code, c.language = case_code, language
     return TurnResult(
-        message=text, reply=reply, intent=intent, stage=stage, status=status,
+        message=text, reply=reply, intent=intent, stage=stage, status=status, language=language,
         llm_calls=calls, reply_source=source, invalid_fields=list(problems),
     )
 
@@ -148,15 +158,25 @@ logger = logging.getLogger(__name__)
 RETRY_DELAYS = [1, 2, 4]  # seconds to wait before each new try
 MAX_RETRY_WAIT = 30  # seconds; a longer Retry-After from the provider is cut to this
 
-FAILURE_REPLY = "Perdona, he tenido un problema técnico. ¿Puedes repetir tu último mensaje?"
-LIMIT_REPLY = (
-    "Hemos llegado al límite de esta conversación. "
-    "Si quieres seguir con tu candidatura, escribe a {email}."
-)
-CONTACT_REPLY = (
-    "Seguimos con un problema técnico. Escríbenos a {email} con tu nombre y tu teléfono, "
-    "y una persona del equipo seguirá con tu candidatura. También puedes intentarlo aquí más tarde."
-)
+# Fixed replies, per language. No LLM call made them, so they use the conversation's last language.
+FAILURE_REPLY = {
+    "es": "Perdona, he tenido un problema técnico. ¿Puedes repetir tu último mensaje?",
+    "en": "Sorry, I had a technical problem. Can you send your last message again?",
+}
+LIMIT_REPLY = {
+    "es": "Hemos llegado al límite de esta conversación. Si quieres seguir con tu candidatura, escribe a {email}.",
+    "en": "We have reached the limit of this conversation. If you want to continue your application, write to {email}.",
+}
+CONTACT_REPLY = {
+    "es": (
+        "Seguimos con un problema técnico. Escríbenos a {email} con tu nombre y tu teléfono, "
+        "y una persona del equipo seguirá con tu candidatura. También puedes intentarlo aquí más tarde."
+    ),
+    "en": (
+        "We still have a technical problem. Write to us at {email} with your name and phone number, "
+        "and a person from the team will continue your application. You can also try here again later."
+    ),
+}
 
 
 def is_transient(error: Exception) -> bool:
@@ -193,8 +213,8 @@ async def run_turn_safely(
         if c.status not in FINAL_STATUSES:
             c.status = Status.INCOMPLETE
         return TurnResult(
-            message=text, reply=LIMIT_REPLY.format(email=contact_email_for(c.country)), intent=Intent.NONE,
-            stage=c.stage, status=c.status, llm_calls=0, reply_source="limit",
+            message=text, reply=LIMIT_REPLY[c.language].format(email=contact_email_for(c.country)),
+            intent=Intent.NONE, stage=c.stage, status=c.status, language=c.language, llm_calls=0, reply_source="limit",
         )
 
     for attempt in range(len(RETRY_DELAYS) + 1):
@@ -208,8 +228,11 @@ async def run_turn_safely(
             await sleep(min(wait, MAX_RETRY_WAIT))
 
     c.failed_turns += 1
-    reply = FAILURE_REPLY if c.failed_turns == 1 else CONTACT_REPLY.format(email=contact_email_for(c.country))
+    if c.failed_turns == 1:
+        reply = FAILURE_REPLY[c.language]
+    else:
+        reply = CONTACT_REPLY[c.language].format(email=contact_email_for(c.country))
     return TurnResult(
-        message=text, reply=reply, intent=Intent.NONE, stage=c.stage, status=c.status,
+        message=text, reply=reply, intent=Intent.NONE, stage=c.stage, status=c.status, language=c.language,
         llm_calls=0, reply_source="fallback",
     )

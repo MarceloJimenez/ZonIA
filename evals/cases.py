@@ -8,7 +8,7 @@ from datetime import date, timedelta
 from pydantic_evals import Case, Dataset
 
 from conversation import Script, Transcript
-from evaluators import FieldsExtracted, FinalState, IntentAt, Judge, LlmCalls, StatusAt, SummaryAt
+from evaluators import FieldsExtracted, FinalState, IntentAt, Judge, LanguageAt, LlmCalls, StatusAt, SummaryAt
 from zonia.flow import MONTHS_ES
 from zonia.models import Intent, Stage, Status
 
@@ -279,6 +279,43 @@ CASES = [
                 "Sonia's last reply says the company is in Spain and Mexico, and adds no other facts about "
                 "the company or the job. Then it asks the next screening question (driving licence or "
                 "where the candidate lives).",
+            ),
+        ),
+    ),
+    # --- Language: Spanish and English (design 4.3) ---
+    Case(
+        name="switches_to_english",
+        inputs=Script(messages=[*ANA[:2], "Sorry, can we continue in English? Full-time, mornings"]),
+        evaluators=(
+            LanguageAt(1, "es"),
+            LanguageAt(2, "en"),
+            FieldsExtracted({"availability": ["full-time"], "schedule": ["morning"]}),
+            FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
+            Judge(
+                "replies in english",
+                "Sonia's last reply is fully in English and asks the next screening question "
+                "(years of experience as a delivery driver).",
+            ),
+        ),
+    ),
+    Case(
+        name="mixed_message_mostly_english",
+        inputs=Script(messages=[ANA[0], "Yes, I have a driving licence and I live in Chamberí, Madrid, gracias"]),
+        evaluators=(
+            LanguageAt(1, "en"),
+            FieldsExtracted({"driver_license": True, "service_zone": "Comunidad de Madrid"}),
+            Judge("replies in english", "Sonia's last reply is fully in English."),
+        ),
+    ),
+    Case(
+        name="writes_in_another_language",
+        inputs=Script(messages=[ANA[0], "Sim, tenho carta de condução e moro em Chamberí, Madrid"]),
+        evaluators=(
+            LanguageAt(1, "es"),
+            Judge(
+                "only spanish or english",
+                "Sonia's last reply is in Spanish. In one sentence it says she can only help in Spanish "
+                "or English. It does not reply in Portuguese.",
             ),
         ),
     ),

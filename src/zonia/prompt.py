@@ -115,15 +115,38 @@ def facts_section(facts: list[str]) -> str:
     ])
 
 
-def turn_instructions(fields: ScreeningFields, today: date, facts: list[str] = JOB_FACTS) -> str:
-    """What call 1 must know this turn: today's date, the known fields, the open ones in order, and the job facts."""
+LANGUAGE_NAMES_ES = {"es": "español", "en": "inglés"}
+
+
+def language_section(language: str) -> str:
+    """Which language call 1 replies in. Design: docs/plans/Process design draft.md, section 4.3."""
+    current = LANGUAGE_NAMES_ES[language]
+    return (
+        f"Idioma actual de la conversación: {current}. "
+        "Mira solo el último mensaje del candidato, no los anteriores. "
+        "Responde en el idioma de ese mensaje, español o inglés, aunque la conversación vaya en otro. "
+        "Si mezcla los dos, responde en el que más palabras tiene. "
+        f"Si escribe en otro idioma (por ejemplo portugués), responde en {current} "
+        "y empieza diciendo en una frase que solo puedes atender en español o en inglés."
+    )
+
+
+def reply_language(language: str) -> str:
+    """The line added to every call 2 instruction: call 1 already decided the language."""
+    return f"Responde en {LANGUAGE_NAMES_ES[language]}."
+
+
+def turn_instructions(
+    fields: ScreeningFields, today: date, facts: list[str] = JOB_FACTS, language: str = "es"
+) -> str:
+    """What call 1 must know this turn: today's date, the known fields, the open ones in order, the job facts and the language."""
     known = [
         f"- {FIELD_LABELS_ES[name]}: {_value_es(name, getattr(fields, name))}"
         for name in FIELD_ORDER
         if getattr(fields, name) is not None
     ]
     missing = [f"{i}. {FIELD_LABELS_ES[name]}" for i, name in enumerate(open_fields(fields), start=1)]
-    parts = [_today_es(today)]
+    parts = [_today_es(today), language_section(language)]
     if known:
         parts.append("Ya sabes:\n" + "\n".join(known))
     if missing:

@@ -66,7 +66,7 @@ def test_a_server_error_that_never_passes_gives_the_failure_reply_and_changes_no
     fake = FailingLLM([http(503)] * 10)
     conversation = Conversation(fields=ScreeningFields(full_name="Ana López"))
     turn, waits = run(fake, conversation, "Sí, tengo carnet")
-    assert (turn.reply, turn.reply_source, turn.llm_calls) == (FAILURE_REPLY, "fallback", 0)
+    assert (turn.reply, turn.reply_source, turn.llm_calls) == (FAILURE_REPLY["es"], "fallback", 0)
     assert fake.calls == len(RETRY_DELAYS) + 1
     assert len(waits) == len(RETRY_DELAYS)
     assert conversation.fields == ScreeningFields(full_name="Ana López")
@@ -93,7 +93,7 @@ def test_the_second_failure_in_a_row_gives_the_contact_email_of_the_country():
     conversation = Conversation(country="MX")
     first, _ = run(FailingLLM([http(400)]), conversation)
     second, _ = run(FailingLLM([http(400)]), conversation)
-    assert first.reply == FAILURE_REPLY
+    assert first.reply == FAILURE_REPLY["es"]
     assert contact_email_for("MX") in second.reply
     assert conversation.failed_turns == 2
     assert second.status == Status.ACTIVE
@@ -105,4 +105,4 @@ def test_a_turn_that_succeeds_resets_the_failures():
     run(FailingLLM([], [{}]), conversation)
     assert conversation.failed_turns == 0
     third, _ = run(FailingLLM([http(400)]), conversation)
-    assert third.reply == FAILURE_REPLY
+    assert third.reply == FAILURE_REPLY["es"]

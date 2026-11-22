@@ -1,4 +1,4 @@
-"""The summary the candidate confirms must show their data exactly, in Spanish."""
+"""The summary the candidate confirms must show their data exactly, in Spanish. English: tests/test_language.py."""
 
 from datetime import date
 

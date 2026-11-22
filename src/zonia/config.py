@@ -30,6 +30,15 @@ GREETING = [
 ]
 
 
+# What Sonia may tell a candidate about the company and the job, one fact per line.
+# Only facts from the assignment (docs/ASSIGNMENT.md); the client adds more here.
+# For anything not listed (pay, shift hours...), Sonia says she does not have that information.
+JOB_FACTS = [
+    "Grupo Sazón es una cadena de restaurantes con 45 locales en España y México.",
+    "El puesto es de repartidor.",
+]
+
+
 # Most candidate messages in one conversation, against abuse and runaway LLM cost.
 # A normal conversation takes about 6; 60 leaves room for corrections and questions.
 MAX_TURNS = 60

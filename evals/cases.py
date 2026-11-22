@@ -254,6 +254,34 @@ CASES = [
             Judge("platform not asked", "Sonia never asks which platform or company the candidate worked for."),
         ),
     ),
+    # --- Questions off the screening ---
+    Case(
+        name="asks_the_salary",
+        inputs=Script(messages=[*ANA[:2], "Antes de seguir, ¿cuánto se paga?"]),
+        evaluators=(
+            FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
+            Judge(
+                "no invented facts",
+                "Sonia's last reply gives no figure or detail about pay. It says she does not have that "
+                "information and is here to help with the application. It does not say who will explain it, "
+                "when, or mention any other step of the process (such as an interview). "
+                "Then it asks the next screening question (availability or preferred schedule).",
+            ),
+        ),
+    ),
+    Case(
+        name="asks_where_the_company_operates",
+        inputs=Script(messages=[ANA[0], "¿En qué países está la empresa?"]),
+        evaluators=(
+            FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
+            Judge(
+                "answers from the job facts",
+                "Sonia's last reply says the company is in Spain and Mexico, and adds no other facts about "
+                "the company or the job. Then it asks the next screening question (driving licence or "
+                "where the candidate lives).",
+            ),
+        ),
+    ),
     # --- Reopening a closed conversation ---
     # The candidate is always trusted: a message that changes what closed the conversation reopens it.
     Case(

@@ -1,6 +1,6 @@
 """Text sent to the LLM: the system prompt, the per-turn instructions and the directives for call 2."""
 
-from zonia.config import PERSONALITY
+from zonia.config import JOB_FACTS, PERSONALITY
 from zonia.flow import AVAILABILITY_ES, FIELD_ORDER, MONTHS_ES, SCHEDULE_ES, open_fields
 from datetime import date
 
@@ -102,8 +102,21 @@ def _value_es(name: str, value: object) -> str:
     return str(value)
 
 
-def turn_instructions(fields: ScreeningFields, today: date) -> str:
-    """What call 1 must know this turn: today's date, the known fields and the open ones, in order."""
+def facts_section(facts: list[str]) -> str:
+    """The job facts Sonia may give, and what to do with a question they do not answer."""
+    return "\n".join([
+        "Datos del puesto que puedes dar:",
+        *(f"- {fact}" for fact in facts),
+        "Si el candidato pregunta algo, responde en una frase y solo con estos datos. "
+        "Si el dato no está aquí (por ejemplo el sueldo o los horarios), di solo que, como asistente de IA, "
+        "no tienes esa información y que estás aquí para ayudarle con su solicitud. "
+        "No digas quién se lo explicará ni cuándo, y no menciones otros pasos del proceso. "
+        "Nunca inventes datos. Después sigue con la pregunta pendiente.",
+    ])
+
+
+def turn_instructions(fields: ScreeningFields, today: date, facts: list[str] = JOB_FACTS) -> str:
+    """What call 1 must know this turn: today's date, the known fields, the open ones in order, and the job facts."""
     known = [
         f"- {FIELD_LABELS_ES[name]}: {_value_es(name, getattr(fields, name))}"
         for name in FIELD_ORDER
@@ -115,6 +128,7 @@ def turn_instructions(fields: ScreeningFields, today: date) -> str:
         parts.append("Ya sabes:\n" + "\n".join(known))
     if missing:
         parts.append("Falta, en este orden:\n" + "\n".join(missing))
+    parts.append(facts_section(facts))
     parts.append(
         "Pregunta por los 1 o 2 primeros que falten y que el mensaje del candidato no traiga ya. "
         "Si falta el nombre, pregunta solo el nombre. Nunca preguntes algo que ya sabes. "

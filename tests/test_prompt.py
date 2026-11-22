@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from zonia.config import PERSONALITY
+from zonia.config import JOB_FACTS, PERSONALITY
 from zonia.prompt import DIRECTIVES, FIXED_RULES, SYSTEM, ZONE_DIRECTIVE, build_system, turn_instructions
 from zonia.models import ScreeningFields, Status
 
@@ -55,6 +55,20 @@ def test_nothing_missing_when_complete():
         schedule=["morning"], experience_years=0, start_date=date(2026, 12, 1),
     )
     assert "Falta" not in turn_instructions(fields, TODAY)
+
+
+def test_the_job_facts_and_the_rule_for_other_questions_are_given_every_turn():
+    text = turn_instructions(ScreeningFields(full_name="Ana"), TODAY)
+    for fact in JOB_FACTS:
+        assert f"- {fact}" in text
+    assert "Nunca inventes datos." in text
+    assert "no tienes esa información" in text
+
+
+def test_the_job_facts_come_from_the_setting():
+    text = turn_instructions(ScreeningFields(), TODAY, facts=["El sueldo es X."])
+    assert "- El sueldo es X." in text
+    assert JOB_FACTS[0] not in text
 
 
 # --- System prompt ----------------------------------------------------------

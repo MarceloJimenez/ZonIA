@@ -2,16 +2,16 @@
 
 import asyncio
 
-from zonia.flow import FINAL_STATUSES
 from zonia.llm import build_agent, build_model
 from zonia.turn import Conversation, run_turn
 
 
 def main() -> None:
-    # The chat ends at a final status. An empty line or Ctrl-D ends it early.
+    # The chat stays open after a final status: a later message can reopen it.
+    # An empty line or Ctrl-D ends the chat.
     agent = build_agent(build_model())
     conversation = Conversation()
-    while conversation.status not in FINAL_STATUSES:
+    while True:
         try:
             text = input("> ").strip()
         except EOFError:

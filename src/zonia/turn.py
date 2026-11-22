@@ -3,8 +3,8 @@
 1. Call 1: the LLM returns the fields, the intent and a reply.
 2. Code merges the fields and decides the new stage and status.
 3. If the status changed and a directive exists: call 2 writes the reply again.
-   If the conversation enters closing or the candidate corrects the summary:
-   code writes the summary and no extra call is made.
+   If the conversation enters closing, the candidate corrects the summary, or a closed
+   conversation reopens in closing: code writes the summary and no extra call is made.
 """
 
 from dataclasses import dataclass, field
@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, UserPromptPart
 
-from zonia.flow import decide, render_summary
+from zonia.flow import FINAL_STATUSES, decide, render_summary
 from zonia.models import Intent, ScreeningFields, Stage, Status, Turn
 from zonia.prompt import DIRECTIVES, turn_instructions
 
@@ -54,7 +54,7 @@ async def run_turn(agent: Agent[None, Turn], conversation: Conversation, text: s
     show_summary = (
         stage == Stage.CLOSING
         and status == Status.ACTIVE
-        and (c.stage != Stage.CLOSING or intent == Intent.CORRECTS_SUMMARY)
+        and (c.stage != Stage.CLOSING or intent == Intent.CORRECTS_SUMMARY or c.status in FINAL_STATUSES)
     )
 
     if status != c.status and status in DIRECTIVES:

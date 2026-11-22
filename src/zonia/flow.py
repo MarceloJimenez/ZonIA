@@ -30,9 +30,28 @@ def open_fields(fields: ScreeningFields) -> list[str]:
     return result
 
 
+def reopens(status: Status, intent: Intent, fields: ScreeningFields) -> bool:
+    """True when a message changes what closed the conversation. The candidate is always trusted.
+
+    Disqualified: the licence is no longer "no". Withdrawn: the candidate wants to continue.
+    Qualified: the candidate corrects the summary, or is no longer interested (then withdrawn).
+    Incomplete never reopens.
+    """
+    if status == Status.DISQUALIFIED:
+        return fields.driver_license is not False
+    if status == Status.WITHDRAWN:
+        return intent == Intent.CONTINUE
+    if status == Status.QUALIFIED:
+        return intent in {Intent.CORRECTS_SUMMARY, Intent.NOT_INTERESTED}
+    return False
+
+
 def decide(stage: Stage, status: Status, intent: Intent, fields: ScreeningFields) -> tuple[Stage, Status]:
     """Return the new stage and status after one candidate message."""
-    if status == Status.PAUSED:
+    reopened = status in FINAL_STATUSES and reopens(status, intent, fields)
+    if status in FINAL_STATUSES and not reopened:
+        return stage, status
+    if status == Status.PAUSED or reopened:
         status = Status.ACTIVE
     if fields.driver_license is False:
         return stage, Status.DISQUALIFIED
@@ -44,7 +63,8 @@ def decide(stage: Stage, status: Status, intent: Intent, fields: ScreeningFields
         stage = Stage.DATA_COLLECTION
     if stage == Stage.DATA_COLLECTION and not open_fields(fields):
         return Stage.CLOSING, status
-    if stage == Stage.CLOSING and intent == Intent.CONFIRMS_SUMMARY:
+    # A reopened candidate must see the summary with the new data before confirming it.
+    if stage == Stage.CLOSING and intent == Intent.CONFIRMS_SUMMARY and not reopened:
         return stage, Status.QUALIFIED
     return stage, status
 

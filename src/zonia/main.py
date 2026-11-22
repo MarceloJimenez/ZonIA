@@ -1,6 +1,6 @@
 """Terminal chat with Sonia, one turn per line typed.
 
-`zonia` starts a new conversation and prints its id.
+`zonia` starts a new conversation, prints its id and Sonia's greeting.
 `zonia <id>` continues a saved conversation.
 The database file is ZONIA_DB from .env, or zonia.db.
 """
@@ -9,9 +9,10 @@ import asyncio
 import os
 import sys
 
+from zonia.config import GREETING
 from zonia.llm import build_agent, build_model
 from zonia.storage import Storage
-from zonia.turn import Conversation, run_turn_safely
+from zonia.turn import new_conversation, run_turn_safely
 
 
 def main() -> None:
@@ -27,10 +28,12 @@ def main() -> None:
             except (ValueError, KeyError):
                 print(f"No conversation with id {sys.argv[1]!r}.")
                 return
+            print(f"conversation={conversation_id}")
         else:
-            conversation = Conversation(country=os.environ.get("ZONIA_COUNTRY", "ES"))
-            conversation_id = storage.create(conversation)
-        print(f"conversation={conversation_id}")
+            conversation = new_conversation(os.environ.get("ZONIA_COUNTRY", "ES"))
+            conversation_id = storage.create(conversation, GREETING)
+            print(f"conversation={conversation_id}")
+            print("\n".join(GREETING))
         while True:
             try:
                 text = input("> ").strip()

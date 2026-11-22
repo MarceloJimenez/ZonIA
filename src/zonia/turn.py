@@ -19,7 +19,7 @@ from pydantic_ai import Agent
 from pydantic_ai.exceptions import ModelAPIError, ModelHTTPError
 from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, UserPromptPart
 
-from zonia.config import contact_email_for
+from zonia.config import GREETING, contact_email_for
 from zonia.flow import FINAL_STATUSES, decide, render_summary
 from zonia.models import Intent, ScreeningFields, Stage, Status, Turn, turn_model
 from zonia.prompt import directive, invalid_directive, turn_instructions
@@ -36,6 +36,15 @@ class Conversation:
     status: Status = Status.ACTIVE
     country: str = "ES"  # "ES" or "MX"; decides the service zones
     failed_turns: int = 0  # turns in a row that ended in a technical failure
+
+
+def new_conversation(country: str = "ES") -> Conversation:
+    """A conversation that starts with Sonia's greeting.
+
+    The greeting is in the history, so on turn 1 the LLM knows what Sonia asked.
+    """
+    greeting = ModelResponse(parts=[TextPart(content="\n".join(GREETING))])
+    return Conversation(history=[greeting], country=country)
 
 
 class TurnResult(BaseModel):

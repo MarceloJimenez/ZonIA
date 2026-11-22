@@ -22,6 +22,14 @@ SERVICE_ZONES = {
 }
 
 
+# Sonia's first message, one string per bubble. It says she is an AI.
+# Design: docs/plans/Process design draft.md, section 6, "Examples".
+GREETING = [
+    "Hola, soy Sonia, la asistente de IA de Grupo Sazón. Te escribo por tu solicitud de repartidor.",
+    "Son unos 5 minutos. ¿Seguimos? Si es así, dime tu nombre completo.",
+]
+
+
 # Where a candidate writes when Sonia cannot go on (for example, the LLM keeps failing).
 CONTACT_EMAILS = {
     "ES": "seleccion.es@gruposazon.example",

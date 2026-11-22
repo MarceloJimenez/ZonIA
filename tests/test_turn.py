@@ -14,10 +14,11 @@ from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
+from zonia.config import GREETING
 from zonia.flow import render_summary
 from zonia.models import ScreeningFields, Stage, Status, Turn
 from zonia.prompt import DIRECTIVES, SYSTEM, ZONE_DIRECTIVE, turn_instructions
-from zonia.turn import Conversation, run_turn
+from zonia.turn import Conversation, new_conversation, run_turn
 
 CALL_1_REPLY = "CALL-1 REPLY"
 CALL_2_REPLY = "CALL-2 REPLY"
@@ -289,3 +290,14 @@ def test_call_1_is_told_today_s_date():
     fake = FakeLLM([{}])
     asyncio.run(run_turn(make_agent(fake), Conversation(), "Hola", today=date(2026, 11, 22)))
     assert "domingo, 22 de noviembre de 2026" in fake.instructions[0]
+
+
+def test_a_new_conversation_starts_with_the_greeting_and_turn_1_keeps_it():
+    conversation = new_conversation("MX")
+    assert conversation.country == "MX"
+    assert history_text(conversation) == "\n".join(GREETING)
+    fake = FakeLLM([{"intent": "continue", "fields": {"full_name": "Ana López"}}])
+    asyncio.run(run_turn(make_agent(fake), conversation, "Sí, soy Ana López"))
+    # Turn 1 sends the greeting to the LLM, so the history still starts with it.
+    assert history_text(conversation).startswith("\n".join(GREETING))
+    assert conversation.stage == Stage.DATA_COLLECTION

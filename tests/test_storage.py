@@ -6,9 +6,10 @@ import pytest
 
 from test_failures import FailingLLM, http
 from test_turn import COMPLETE, FakeLLM, make_agent
+from zonia.config import GREETING
 from zonia.models import Stage, Status
 from zonia.storage import Storage
-from zonia.turn import FAILURE_REPLY, Conversation, run_turn, run_turn_safely
+from zonia.turn import FAILURE_REPLY, Conversation, new_conversation, run_turn, run_turn_safely
 
 
 @pytest.fixture
@@ -83,6 +84,13 @@ def test_a_failed_turn_keeps_the_candidate_message_and_the_failure_count(storage
 
     assert storage.messages(conversation_id) == [("candidate", "Soy Ana López"), ("agent", FAILURE_REPLY)]
     assert storage.load(conversation_id).failed_turns == 1
+
+
+def test_the_greeting_is_saved_as_sonias_first_messages(storage):
+    conversation = new_conversation()
+    conversation_id = storage.create(conversation, GREETING)
+    assert storage.messages(conversation_id) == [("agent", text) for text in GREETING]
+    assert storage.load(conversation_id) == conversation
 
 
 def test_an_unknown_id_raises_key_error(storage):

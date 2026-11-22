@@ -66,8 +66,11 @@ class Storage:
     def close(self) -> None:
         self.db.close()
 
-    def create(self, conversation: Conversation) -> int:
-        """Save a new conversation and return its id."""
+    def create(self, conversation: Conversation, agent_messages: list[str] = ()) -> int:
+        """Save a new conversation and return its id.
+
+        agent_messages are Sonia's first messages (the greeting), saved before any turn.
+        """
         now = _now()
         with self.db:
             cursor = self.db.execute(
@@ -75,6 +78,10 @@ class Storage:
                 " (country, stage, status, fields, history, failed_turns, created_at, updated_at)"
                 " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (conversation.country, *self._state(conversation), now, now),
+            )
+            self.db.executemany(
+                "INSERT INTO messages (conversation_id, role, text, created_at) VALUES (?, 'agent', ?, ?)",
+                [(cursor.lastrowid, text, now) for text in agent_messages],
             )
         return cursor.lastrowid
 

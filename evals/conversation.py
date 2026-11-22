@@ -7,9 +7,10 @@ from pydantic import BaseModel
 from pydantic_ai.exceptions import ModelRateLimitError, ModelUnavailableError
 from pydantic_ai.models.wrapper import WrapperModel
 
+from zonia.config import GREETING
 from zonia.llm import build_agent, build_model
 from zonia.models import ScreeningFields, Stage, Status
-from zonia.turn import Conversation, TurnResult, run_turn
+from zonia.turn import TurnResult, new_conversation, run_turn
 
 SECONDS_BETWEEN_REQUESTS = 4.5  # Gemini free tier: 15 requests per minute
 RETRY_WAIT_SECONDS = 30
@@ -33,7 +34,8 @@ class Transcript(BaseModel):
 
     def text(self) -> str:
         """The conversation as a judge reads it."""
-        return "\n".join(f"Candidate: {t.message}\nSonia: {t.reply}" for t in self.turns)
+        greeting = "\n".join(f"Sonia: {text}" for text in GREETING)
+        return "\n".join([greeting, *(f"Candidate: {t.message}\nSonia: {t.reply}" for t in self.turns)])
 
 
 class PacedModel(WrapperModel):
@@ -66,7 +68,7 @@ AGENT = build_agent(MODEL)
 
 async def converse(script: Script) -> Transcript:
     """Send each message as one turn. A final status does not stop it: a later message can reopen it."""
-    conversation = Conversation(country=script.country)
+    conversation = new_conversation(script.country)
     turns = []
     for message in script.messages:
         turns.append(await with_retries(lambda: run_turn(AGENT, conversation, message)))

@@ -1,5 +1,7 @@
 """Business settings that change without a code change. Example data, to be replaced by Grupo Sazón's real list."""
 
+from datetime import timedelta
+
 # Service zones per country: large regions, so the list stays short.
 # The assignment only says "Must be within service areas" (docs/ASSIGNMENT.md:30).
 SERVICE_ZONES = {
@@ -50,6 +52,21 @@ JOB_FACTS = [
 # Most candidate messages in one conversation, against abuse and runaway LLM cost.
 # A normal conversation takes about 6; 60 leaves room for corrections and questions.
 MAX_TURNS = 60
+
+
+# What happens when the candidate stops replying: (time since Sonia's last message, step).
+# Steps: "reminder" (Sonia writes again), "pause" (status paused), "incomplete" (status incomplete).
+# Design: docs/plans/Process design draft.md, section 4.1.
+FOLLOW_UPS = [  # the candidate stops in the middle of the conversation
+    (timedelta(minutes=10), "reminder"),
+    (timedelta(minutes=30), "pause"),
+    (timedelta(hours=20), "reminder"),  # still inside the WhatsApp 24-hour window
+    (timedelta(hours=24), "incomplete"),
+]
+FOLLOW_UPS_NO_REPLY = [  # the candidate never answers the greeting
+    (timedelta(hours=3), "reminder"),  # on WhatsApp, a template approved by Meta
+    (timedelta(hours=24), "incomplete"),
+]
 
 
 # Where a candidate writes when Sonia cannot go on (for example, the LLM keeps failing).

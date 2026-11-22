@@ -3,9 +3,11 @@
 One row per conversation keeps everything run_turn needs to continue it:
 country, stage, status, language, the fields and the LLM history (both as JSON).
 The messages table keeps what the candidate wrote and what Sonia replied, in order.
+waiting_since is the time of Sonia's last reply to the candidate: the follow-ups (zonia.followups) count from it.
 """
 
 import sqlite3
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -29,6 +31,8 @@ CREATE TABLE IF NOT EXISTS conversations (
     case_code TEXT NOT NULL UNIQUE,
     turns INTEGER NOT NULL,
     language TEXT NOT NULL,
+    followup_step INTEGER NOT NULL,
+    waiting_since TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -42,8 +46,8 @@ CREATE TABLE IF NOT EXISTS messages (
 """
 
 
-def _now() -> str:
-    return datetime.now(UTC).isoformat()
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 @dataclass
@@ -61,9 +65,13 @@ class ConversationRow:
 
 
 class Storage:
-    """A SQLite database file. ":memory:" keeps it in memory, for tests."""
+    """A SQLite database file. ":memory:" keeps it in memory, for tests.
 
-    def __init__(self, path: str | Path):
+    clock gives the current time; tests pass a fake one.
+    """
+
+    def __init__(self, path: str | Path, clock: Callable[[], datetime] = _utc_now):
+        self.clock = clock
         self.db = sqlite3.connect(path)
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA foreign_keys = ON")
@@ -91,13 +99,14 @@ class Storage:
         raise RuntimeError(f"No free case code after {CASE_CODE_TRIES} tries")
 
     def _insert(self, conversation: Conversation, agent_messages: list[str]) -> int:
-        now = _now()
+        now = self.clock().isoformat()
         with self.db:
             cursor = self.db.execute(
                 "INSERT INTO conversations"
-                " (country, stage, status, fields, history, failed_turns, case_code, turns, language, created_at, updated_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (conversation.country, *self._state(conversation), now, now),
+                " (country, stage, status, fields, history, failed_turns, case_code, turns, language, followup_step,"
+                " waiting_since, created_at, updated_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (conversation.country, *self._state(conversation), now, now, now),
             )
             self.db.executemany(
                 "INSERT INTO messages (conversation_id, role, text, created_at) VALUES (?, 'agent', ?, ?)",
@@ -120,19 +129,22 @@ class Storage:
             case_code=row["case_code"],
             turns=row["turns"],
             language=row["language"],
+            followup_step=row["followup_step"],
         )
 
     def save_turn(self, conversation_id: int, conversation: Conversation, turn: TurnResult) -> None:
         """Save the conversation after one turn, and the turn's two messages.
 
-        One transaction: either everything is saved, or nothing is.
+        One transaction: either everything is saved, or nothing is. Sonia has just replied,
+        so waiting_since starts again.
         """
-        now = _now()
+        now = self.clock().isoformat()
         with self.db:
             updated = self.db.execute(
                 "UPDATE conversations SET stage = ?, status = ?, fields = ?, history = ?, failed_turns = ?,"
-                " case_code = ?, turns = ?, language = ?, updated_at = ? WHERE id = ?",
-                (*self._state(conversation), now, conversation_id),
+                " case_code = ?, turns = ?, language = ?, followup_step = ?, waiting_since = ?, updated_at = ?"
+                " WHERE id = ?",
+                (*self._state(conversation), now, now, conversation_id),
             )
             if updated.rowcount == 0:
                 raise KeyError(conversation_id)
@@ -140,6 +152,39 @@ class Storage:
                 "INSERT INTO messages (conversation_id, role, text, created_at) VALUES (?, ?, ?, ?)",
                 [(conversation_id, "candidate", turn.message, now), (conversation_id, "agent", turn.reply, now)],
             )
+
+    def waiting(self) -> list[tuple[int, datetime]]:
+        """(id, waiting_since) of every conversation that waits for the candidate: active or paused."""
+        rows = self.db.execute(
+            "SELECT id, waiting_since FROM conversations WHERE status IN (?, ?) ORDER BY id",
+            (Status.ACTIVE.value, Status.PAUSED.value),
+        )
+        return [(row["id"], datetime.fromisoformat(row["waiting_since"])) for row in rows]
+
+    def save_followup(self, conversation_id: int, conversation: Conversation, reminder: str | None) -> None:
+        """Save a follow-up step: the new status, history and step, and the reminder if Sonia sent one.
+
+        waiting_since does not change: the next steps count from Sonia's last reply.
+        """
+        now = self.clock().isoformat()
+        with self.db:
+            updated = self.db.execute(
+                "UPDATE conversations SET status = ?, history = ?, followup_step = ?, updated_at = ? WHERE id = ?",
+                (
+                    conversation.status.value,
+                    ModelMessagesTypeAdapter.dump_json(conversation.history).decode(),
+                    conversation.followup_step,
+                    now,
+                    conversation_id,
+                ),
+            )
+            if updated.rowcount == 0:
+                raise KeyError(conversation_id)
+            if reminder is not None:
+                self.db.execute(
+                    "INSERT INTO messages (conversation_id, role, text, created_at) VALUES (?, 'agent', ?, ?)",
+                    (conversation_id, reminder, now),
+                )
 
     def conversations(self) -> list[ConversationRow]:
         """Every conversation, newest first."""
@@ -180,7 +225,8 @@ class Storage:
         return [(row["role"], row["text"]) for row in rows]
 
     @staticmethod
-    def _state(c: Conversation) -> tuple[str, str, str, str, int, str | None, int, str]:
-        """stage, status, fields, history, failed_turns, case_code, turns and language, as stored in the conversations row."""
+    def _state(c: Conversation) -> tuple[str, str, str, str, int, str | None, int, str, int]:
+        """stage, status, fields, history, failed_turns, case_code, turns, language and followup_step,
+        as stored in the conversations row."""
         history = ModelMessagesTypeAdapter.dump_json(c.history).decode()
-        return c.stage.value, c.status.value, c.fields.model_dump_json(), history, c.failed_turns, c.case_code, c.turns, c.language
+        return c.stage.value, c.status.value, c.fields.model_dump_json(), history, c.failed_turns, c.case_code, c.turns, c.language, c.followup_step

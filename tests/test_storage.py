@@ -23,7 +23,7 @@ def storage(tmp_path):
 
 def test_a_new_conversation_loads_back_the_same(storage):
     conversation = Conversation(
-        fields=COMPLETE, stage=Stage.CLOSING, status=Status.DISQUALIFIED, country="MX", failed_turns=2, case_code="K7PX-3QMD", turns=7, language="en",
+        fields=COMPLETE, stage=Stage.CLOSING, status=Status.DISQUALIFIED, country="MX", failed_turns=2, case_code="K7PX-3QMD", turns=7, language="en", followup_step=2,
     )
     loaded = storage.load(storage.create(conversation))
     assert loaded == conversation

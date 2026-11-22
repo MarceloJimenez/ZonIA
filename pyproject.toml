@@ -18,6 +18,7 @@ dependencies = [
 [project.scripts]
 zonia = "zonia.main:main"
 zonia-dashboard = "zonia.dashboard:main"
+zonia-followups = "zonia.followups:main"
 
 [build-system]
 requires = ["uv_build>=0.9.13,<0.10.0"]

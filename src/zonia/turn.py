@@ -44,6 +44,7 @@ class Conversation:
     case_code: str | None = None  # storage gives it; the candidate gets it on disqualification
     turns: int = 0  # candidate messages so far, failed turns included
     language: str = "es"  # "es" or "en": the language of the candidate's last message
+    followup_step: int = 0  # follow-up steps done since the candidate's last message (zonia.followups)
 
 
 REVIEW_REPLY = {
@@ -209,6 +210,7 @@ async def run_turn_safely(
     """
     c = conversation
     c.turns += 1
+    c.followup_step = 0  # the candidate answered: the follow-ups start again
     if c.turns >= MAX_TURNS:
         if c.status not in FINAL_STATUSES:
             c.status = Status.INCOMPLETE

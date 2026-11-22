@@ -28,11 +28,14 @@ def build_system(personality: dict[str, str]) -> str:
 
 SYSTEM = build_system(PERSONALITY)
 
+# Code adds the review email and the case code after the LLM's reply (zonia.turn).
+NO_CONTACT = "No des ningún correo, teléfono ni código: se añaden después de tu mensaje."
+
 DIRECTIVES = {
     Status.DISQUALIFIED: (
         "El candidato no puede continuar porque el puesto exige carnet de conducir. "
         "Díselo directamente, de tú y con amabilidad, usando \"lamentablemente\". "
-        "Agradécele su tiempo y no hagas más preguntas."
+        f"Agradécele su tiempo y no hagas más preguntas. {NO_CONTACT}"
     ),
     Status.WITHDRAWN: (
         "El candidato no quiere continuar. Agradécele su tiempo y despídete. No hagas más preguntas."
@@ -49,7 +52,7 @@ DIRECTIVES = {
 ZONE_DIRECTIVE = (
     "El candidato vive fuera de las zonas donde Grupo Sazón tiene servicio. "
     "Díselo directamente, de tú y con amabilidad, usando \"lamentablemente\". "
-    "Agradécele su tiempo y no hagas más preguntas."
+    f"Agradécele su tiempo y no hagas más preguntas. {NO_CONTACT}"
 )
 
 FIELD_LABELS_ES = {

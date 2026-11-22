@@ -1,6 +1,7 @@
 """SQLite storage: a saved conversation loads back the same and can continue."""
 
 import asyncio
+import sqlite3
 
 import pytest
 
@@ -8,6 +9,7 @@ from test_failures import FailingLLM, http
 from test_turn import COMPLETE, FakeLLM, make_agent
 from zonia.config import GREETING
 from zonia.models import Stage, Status
+from zonia import storage as storage_module
 from zonia.storage import Storage
 from zonia.turn import FAILURE_REPLY, Conversation, new_conversation, run_turn, run_turn_safely
 
@@ -21,7 +23,7 @@ def storage(tmp_path):
 
 def test_a_new_conversation_loads_back_the_same(storage):
     conversation = Conversation(
-        fields=COMPLETE, stage=Stage.CLOSING, status=Status.PAUSED, country="MX", failed_turns=2,
+        fields=COMPLETE, stage=Stage.CLOSING, status=Status.DISQUALIFIED, country="MX", failed_turns=2, case_code="K7PX-3QMD",
     )
     loaded = storage.load(storage.create(conversation))
     assert loaded == conversation
@@ -91,6 +93,28 @@ def test_the_greeting_is_saved_as_sonias_first_messages(storage):
     conversation_id = storage.create(conversation, GREETING)
     assert storage.messages(conversation_id) == [("agent", text) for text in GREETING]
     assert storage.load(conversation_id) == conversation
+
+
+def test_a_new_conversation_gets_a_case_code(storage):
+    conversation = Conversation()
+    conversation_id = storage.create(conversation)
+    assert conversation.case_code is not None
+    assert storage.load(conversation_id).case_code == conversation.case_code
+
+
+def test_a_repeated_case_code_is_replaced_before_it_is_saved(storage, monkeypatch):
+    storage.create(Conversation(case_code="AAAA-AAAA"))
+    codes = iter(["AAAA-AAAA", "BBBB-BBBB"])
+    monkeypatch.setattr(storage_module, "new_case_code", lambda: next(codes))
+    conversation = Conversation()
+    conversation_id = storage.create(conversation)
+    assert storage.load(conversation_id).case_code == conversation.case_code == "BBBB-BBBB"
+
+
+def test_a_repeated_case_code_given_by_the_caller_is_rejected(storage):
+    storage.create(Conversation(case_code="AAAA-AAAA"))
+    with pytest.raises(sqlite3.IntegrityError):
+        storage.create(Conversation(case_code="AAAA-AAAA"))
 
 
 def test_an_unknown_id_raises_key_error(storage):

@@ -13,7 +13,9 @@ from pathlib import Path
 from pydantic_ai.messages import ModelMessagesTypeAdapter
 
 from zonia.models import ScreeningFields, Stage, Status
-from zonia.turn import Conversation, TurnResult
+from zonia.turn import Conversation, TurnResult, new_case_code
+
+CASE_CODE_TRIES = 5  # a repeated code is almost impossible; 5 tries in a row is a bug
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS conversations (
@@ -24,6 +26,7 @@ CREATE TABLE IF NOT EXISTS conversations (
     fields TEXT NOT NULL,
     history TEXT NOT NULL,
     failed_turns INTEGER NOT NULL,
+    case_code TEXT NOT NULL UNIQUE,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -52,6 +55,7 @@ class ConversationRow:
     fields: ScreeningFields
     created_at: datetime
     updated_at: datetime  # the time of the last saved turn
+    case_code: str  # the candidate gets it on disqualification, to ask for a human review
 
 
 class Storage:
@@ -70,13 +74,27 @@ class Storage:
         """Save a new conversation and return its id.
 
         agent_messages are Sonia's first messages (the greeting), saved before any turn.
+        A conversation without a case code gets one here. The column is UNIQUE: if the
+        code is already taken, a new code is made, before any candidate sees it.
         """
+        given = conversation.case_code is not None
+        for _ in range(CASE_CODE_TRIES):
+            if not given:
+                conversation.case_code = new_case_code()
+            try:
+                return self._insert(conversation, agent_messages)
+            except sqlite3.IntegrityError:
+                if given:
+                    raise
+        raise RuntimeError(f"No free case code after {CASE_CODE_TRIES} tries")
+
+    def _insert(self, conversation: Conversation, agent_messages: list[str]) -> int:
         now = _now()
         with self.db:
             cursor = self.db.execute(
                 "INSERT INTO conversations"
-                " (country, stage, status, fields, history, failed_turns, created_at, updated_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                " (country, stage, status, fields, history, failed_turns, case_code, created_at, updated_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (conversation.country, *self._state(conversation), now, now),
             )
             self.db.executemany(
@@ -97,6 +115,7 @@ class Storage:
             status=Status(row["status"]),
             country=row["country"],
             failed_turns=row["failed_turns"],
+            case_code=row["case_code"],
         )
 
     def save_turn(self, conversation_id: int, conversation: Conversation, turn: TurnResult) -> None:
@@ -108,7 +127,7 @@ class Storage:
         with self.db:
             updated = self.db.execute(
                 "UPDATE conversations SET stage = ?, status = ?, fields = ?, history = ?, failed_turns = ?,"
-                " updated_at = ? WHERE id = ?",
+                " case_code = ?, updated_at = ? WHERE id = ?",
                 (*self._state(conversation), now, conversation_id),
             )
             if updated.rowcount == 0:
@@ -121,7 +140,7 @@ class Storage:
     def conversations(self) -> list[ConversationRow]:
         """Every conversation, newest first."""
         rows = self.db.execute(
-            "SELECT id, country, stage, status, fields, created_at, updated_at FROM conversations"
+            "SELECT id, country, stage, status, fields, case_code, created_at, updated_at FROM conversations"
             " ORDER BY created_at DESC, id DESC"
         )
         return [self._row(row) for row in rows]
@@ -129,7 +148,7 @@ class Storage:
     def conversation(self, conversation_id: int) -> ConversationRow:
         """The conversation with this id, as the dashboard shows it. Raises KeyError if there is none."""
         row = self.db.execute(
-            "SELECT id, country, stage, status, fields, created_at, updated_at FROM conversations WHERE id = ?",
+            "SELECT id, country, stage, status, fields, case_code, created_at, updated_at FROM conversations WHERE id = ?",
             (conversation_id,),
         ).fetchone()
         if row is None:
@@ -146,6 +165,7 @@ class Storage:
             fields=ScreeningFields.model_validate_json(row["fields"]),
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
+            case_code=row["case_code"],
         )
 
     def messages(self, conversation_id: int) -> list[tuple[str, str]]:
@@ -156,7 +176,7 @@ class Storage:
         return [(row["role"], row["text"]) for row in rows]
 
     @staticmethod
-    def _state(c: Conversation) -> tuple[str, str, str, str, int]:
-        """stage, status, fields, history and failed_turns, as stored in the conversations row."""
+    def _state(c: Conversation) -> tuple[str, str, str, str, int, str | None]:
+        """stage, status, fields, history, failed_turns and case_code, as stored in the conversations row."""
         history = ModelMessagesTypeAdapter.dump_json(c.history).decode()
-        return c.stage.value, c.status.value, c.fields.model_dump_json(), history, c.failed_turns
+        return c.stage.value, c.status.value, c.fields.model_dump_json(), history, c.failed_turns, c.case_code

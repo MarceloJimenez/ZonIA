@@ -14,11 +14,11 @@ from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from zonia.config import GREETING
+from zonia.config import GREETING, contact_email_for
 from zonia.flow import render_summary
 from zonia.models import ScreeningFields, Stage, Status, Turn
 from zonia.prompt import DIRECTIVES, SYSTEM, ZONE_DIRECTIVE, turn_instructions
-from zonia.turn import Conversation, new_conversation, run_turn
+from zonia.turn import CASE_CODE_ALPHABET, Conversation, new_case_code, new_conversation, run_turn
 
 CALL_1_REPLY = "CALL-1 REPLY"
 CALL_2_REPLY = "CALL-2 REPLY"
@@ -87,7 +87,9 @@ def test_a_status_change_replaces_the_reply_with_call_2_following_the_directive(
     fake = FakeLLM([llm_turn])
     turn = asyncio.run(run_turn(make_agent(fake), start(), "mensaje"))
     assert turn.status == status
-    assert (turn.reply, turn.llm_calls, turn.reply_source) == (CALL_2_REPLY, 2, "call_2")
+    # A disqualification adds the review email and the case code after call 2's reply.
+    assert turn.reply.startswith(CALL_2_REPLY)
+    assert (turn.llm_calls, turn.reply_source) == (2, "call_2")
     assert DIRECTIVES[status] in fake.instructions[-1]
 
 
@@ -188,7 +190,8 @@ def test_a_place_outside_the_service_zones_disqualifies_with_the_zone_directive(
     fake = FakeLLM([{"fields": fields}])
     turn = asyncio.run(run_turn(make_agent(fake), Conversation(), "Soy Luis, tengo carnet y vivo en Salamanca"))
     assert turn.status == Status.DISQUALIFIED
-    assert (turn.reply, turn.llm_calls) == (CALL_2_REPLY, 2)
+    assert turn.reply.startswith(CALL_2_REPLY)
+    assert turn.llm_calls == 2
     assert ZONE_DIRECTIVE in fake.instructions[-1]
 
 
@@ -301,3 +304,46 @@ def test_a_new_conversation_starts_with_the_greeting_and_turn_1_keeps_it():
     # Turn 1 sends the greeting to the LLM, so the history still starts with it.
     assert history_text(conversation).startswith("\n".join(GREETING))
     assert conversation.stage == Stage.DATA_COLLECTION
+
+
+NO_LICENCE = {"fields": {"full_name": "Luis", "driver_license": False}}
+
+
+def test_a_disqualification_gives_the_review_email_and_a_case_code():
+    conversation = Conversation(country="MX")
+    turn = asyncio.run(run_turn(make_agent(FakeLLM([NO_LICENCE])), conversation, "Soy Luis y no tengo carnet"))
+    code = conversation.case_code
+    assert code is not None
+    assert turn.reply.endswith(f"escribe a {contact_email_for('MX')} con el código {code}.")
+    # The LLM sees what the candidate saw, code included.
+    assert code in history_text(conversation)
+
+
+def test_the_case_code_stays_the_same_when_disqualified_again():
+    conversation = Conversation()
+    licence = {"fields": {"driver_license": True}}
+    fake = FakeLLM([NO_LICENCE, licence, {"fields": {"driver_license": False}}])
+    agent = make_agent(fake)
+    asyncio.run(run_turn(agent, conversation, "Soy Luis y no tengo carnet"))
+    first = conversation.case_code
+    asyncio.run(run_turn(agent, conversation, "Perdón, sí tengo carnet"))
+    assert conversation.status == Status.ACTIVE
+    turn = asyncio.run(run_turn(agent, conversation, "Bueno, en realidad no lo tengo"))
+    assert conversation.case_code == first
+    assert first in turn.reply
+
+
+def test_other_status_changes_get_no_case_code():
+    conversation = Conversation()
+    turn = asyncio.run(run_turn(make_agent(FakeLLM([{"intent": "not_interested"}])), conversation, "No me interesa"))
+    assert conversation.case_code is None
+    assert turn.reply == CALL_2_REPLY
+
+
+def test_a_case_code_has_8_characters_without_0_o_1_or_i():
+    codes = {new_case_code() for _ in range(200)}
+    assert len(codes) == 200
+    for code in codes:
+        assert len(code) == 9 and code[4] == "-"
+        assert set(code.replace("-", "")) <= set(CASE_CODE_ALPHABET)
+        assert not set(code) & set("0O1I")

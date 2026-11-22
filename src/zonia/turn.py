@@ -6,12 +6,14 @@
 4. If the status changed and a directive exists, or a value was not valid: call 2 writes the reply again.
    If the conversation enters closing, the candidate corrects the summary, or a closed
    conversation reopens in closing: code writes the summary and no extra call is made.
+5. A new disqualification: code adds the review email and the case code to the reply.
 """
 
 import asyncio
 import logging
+import secrets
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 
 from pydantic import BaseModel
@@ -36,6 +38,19 @@ class Conversation:
     status: Status = Status.ACTIVE
     country: str = "ES"  # "ES" or "MX"; decides the service zones
     failed_turns: int = 0  # turns in a row that ended in a technical failure
+    case_code: str | None = None  # storage gives it; the candidate gets it on disqualification
+
+
+REVIEW_REPLY = "Si quieres que una persona revise tu caso, escribe a {email} con el código {code}."
+
+# No 0/O and no 1/I: a candidate types the code into an email. 32^8 is more than a trillion codes.
+CASE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def new_case_code() -> str:
+    """A random case code that cannot be guessed, like "K7PX-3QMD"."""
+    chars = "".join(secrets.choice(CASE_CODE_ALPHABET) for _ in range(8))
+    return f"{chars[:4]}-{chars[4:]}"
 
 
 def new_conversation(country: str = "ES") -> Conversation:
@@ -108,7 +123,17 @@ async def run_turn(
     else:
         reply, history, calls, source = result.output.reply, result.all_messages(), 1, "call_1"
 
+    # A new disqualification: code adds the review email and the case code, so both are exact.
+    # This always follows call 2, so the last history message is call 2's reply.
+    # Storage gives every conversation a unique code; a conversation that was never saved gets one here.
+    case_code = c.case_code
+    if status == Status.DISQUALIFIED and status != c.status:
+        case_code = case_code or new_case_code()
+        reply = f"{reply}\n\n{REVIEW_REPLY.format(email=contact_email_for(c.country), code=case_code)}"
+        history = [*history[:-1], replace(history[-1], parts=[TextPart(content=reply)])]
+
     c.history, c.fields, c.stage, c.status, c.failed_turns = history, fields, stage, status, 0
+    c.case_code = case_code
     return TurnResult(
         message=text, reply=reply, intent=intent, stage=stage, status=status,
         llm_calls=calls, reply_source=source, invalid_fields=list(problems),

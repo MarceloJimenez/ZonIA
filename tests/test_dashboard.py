@@ -27,6 +27,7 @@ def db(tmp_path):
     qualified_id = storage.create(Conversation(fields=COMPLETE, stage=Stage.CLOSING, status=Status.QUALIFIED))
     storage.create(Conversation(
         fields=ScreeningFields(full_name="Marta Gil", driver_license=False), status=Status.DISQUALIFIED, country="MX",
+        case_code="K7PX-3QMD",
     ))
     qualified = storage.load(qualified_id)
     storage.save_turn(qualified_id, qualified, turn("Soy Ana López", "¿Tienes carnet?"))
@@ -85,6 +86,10 @@ def test_no_summary_before_closing(client):
     assert "Luis Pérez" in html
     assert "Summary shown to the candidate" not in html
     assert "No messages yet." in html
+
+
+def test_the_detail_shows_the_case_code(client):
+    assert "Case K7PX-3QMD" in client.get("/conversations/3").text
 
 
 def test_an_unknown_id_gives_404(client):

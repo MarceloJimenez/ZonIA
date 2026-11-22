@@ -8,13 +8,18 @@
    conversation reopens in closing: code writes the summary and no extra call is made.
 """
 
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import date
 
 from pydantic import BaseModel
 from pydantic_ai import Agent
+from pydantic_ai.exceptions import ModelAPIError, ModelHTTPError
 from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, UserPromptPart
 
+from zonia.config import contact_email_for
 from zonia.flow import FINAL_STATUSES, decide, render_summary
 from zonia.models import Intent, ScreeningFields, Stage, Status, Turn, turn_model
 from zonia.prompt import directive, invalid_directive, turn_instructions
@@ -30,6 +35,7 @@ class Conversation:
     stage: Stage = Stage.INTRODUCTION
     status: Status = Status.ACTIVE
     country: str = "ES"  # "ES" or "MX"; decides the service zones
+    failed_turns: int = 0  # turns in a row that ended in a technical failure
 
 
 class TurnResult(BaseModel):
@@ -40,8 +46,8 @@ class TurnResult(BaseModel):
     intent: Intent
     stage: Stage
     status: Status
-    llm_calls: int
-    reply_source: str  # "call_1", "call_2" or "summary"
+    llm_calls: int  # 0 when the turn failed (reply_source "fallback")
+    reply_source: str  # "call_1", "call_2", "summary" or "fallback"
     invalid_fields: list[str] = []  # values the candidate gave that code dropped
 
 
@@ -93,8 +99,65 @@ async def run_turn(
     else:
         reply, history, calls, source = result.output.reply, result.all_messages(), 1, "call_1"
 
-    c.history, c.fields, c.stage, c.status = history, fields, stage, status
+    c.history, c.fields, c.stage, c.status, c.failed_turns = history, fields, stage, status, 0
     return TurnResult(
         message=text, reply=reply, intent=intent, stage=stage, status=status,
         llm_calls=calls, reply_source=source, invalid_fields=list(problems),
+    )
+
+
+# --- Technical failures -----------------------------------------------------
+
+logger = logging.getLogger(__name__)
+
+RETRY_DELAYS = [1, 2, 4]  # seconds to wait before each new try
+MAX_RETRY_WAIT = 30  # seconds; a longer Retry-After from the provider is cut to this
+
+FAILURE_REPLY = "Perdona, he tenido un problema técnico. ¿Puedes repetir tu último mensaje?"
+CONTACT_REPLY = (
+    "Seguimos con un problema técnico. Escríbenos a {email} con tu nombre y tu teléfono, "
+    "y una persona del equipo seguirá con tu candidatura. También puedes intentarlo aquí más tarde."
+)
+
+
+def is_transient(error: Exception) -> bool:
+    """True for errors that may pass if we try again: 429, 5xx, or no connection.
+
+    Pydantic AI raises the same classes for every LLM provider.
+    """
+    if isinstance(error, ModelHTTPError):
+        return error.status_code == 429 or error.status_code >= 500
+    return isinstance(error, ModelAPIError)  # no HTTP status: the connection failed
+
+
+async def run_turn_safely(
+    agent: Agent[None, Turn],
+    conversation: Conversation,
+    text: str,
+    today: date | None = None,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> TurnResult:
+    """run_turn that never raises.
+
+    A transient error is tried again, up to len(RETRY_DELAYS) times. If the turn still fails,
+    the candidate gets a fixed reply and the conversation keeps its state.
+    The first failure asks the candidate to repeat; from the second failure in a row on,
+    the reply gives the contact email, so the candidate is not lost.
+    """
+    for attempt in range(len(RETRY_DELAYS) + 1):
+        try:
+            return await run_turn(agent, conversation, text, today)
+        except Exception as error:
+            if not is_transient(error) or attempt == len(RETRY_DELAYS):
+                logger.exception("Turn failed after %d tries", attempt + 1)
+                break
+            wait = getattr(error, "retry_after", None) or RETRY_DELAYS[attempt]
+            await sleep(min(wait, MAX_RETRY_WAIT))
+
+    c = conversation
+    c.failed_turns += 1
+    reply = FAILURE_REPLY if c.failed_turns == 1 else CONTACT_REPLY.format(email=contact_email_for(c.country))
+    return TurnResult(
+        message=text, reply=reply, intent=Intent.NONE, stage=c.stage, status=c.status,
+        llm_calls=0, reply_source="fallback",
     )

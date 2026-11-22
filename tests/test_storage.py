@@ -4,10 +4,11 @@ import asyncio
 
 import pytest
 
+from test_failures import FailingLLM, http
 from test_turn import COMPLETE, FakeLLM, make_agent
 from zonia.models import Stage, Status
 from zonia.storage import Storage
-from zonia.turn import Conversation, run_turn
+from zonia.turn import FAILURE_REPLY, Conversation, run_turn, run_turn_safely
 
 
 @pytest.fixture
@@ -18,7 +19,9 @@ def storage(tmp_path):
 
 
 def test_a_new_conversation_loads_back_the_same(storage):
-    conversation = Conversation(fields=COMPLETE, stage=Stage.CLOSING, status=Status.PAUSED, country="MX")
+    conversation = Conversation(
+        fields=COMPLETE, stage=Stage.CLOSING, status=Status.PAUSED, country="MX", failed_turns=2,
+    )
     loaded = storage.load(storage.create(conversation))
     assert loaded == conversation
 
@@ -70,6 +73,16 @@ def test_messages_are_kept_in_order(storage):
         ("candidate", "Sí, tengo carnet"),
         ("agent", "CALL-1 REPLY"),
     ]
+
+
+def test_a_failed_turn_keeps_the_candidate_message_and_the_failure_count(storage):
+    conversation = Conversation()
+    conversation_id = storage.create(conversation)
+    turn = asyncio.run(run_turn_safely(make_agent(FailingLLM([http(400)])), conversation, "Soy Ana López"))
+    storage.save_turn(conversation_id, conversation, turn)
+
+    assert storage.messages(conversation_id) == [("candidate", "Soy Ana López"), ("agent", FAILURE_REPLY)]
+    assert storage.load(conversation_id).failed_turns == 1
 
 
 def test_an_unknown_id_raises_key_error(storage):

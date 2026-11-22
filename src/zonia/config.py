@@ -22,6 +22,13 @@ SERVICE_ZONES = {
 }
 
 
+# Where a candidate writes when Sonia cannot go on (for example, the LLM keeps failing).
+CONTACT_EMAILS = {
+    "ES": "seleccion.es@gruposazon.example",
+    "MX": "seleccion.mx@gruposazon.example",
+}
+
+
 # Sonia's personality: the 5 dimensions a client can change.
 # Design: docs/plans/Process design draft.md, section 2. The fixed rules live in prompt.py.
 PERSONALITY = {
@@ -46,3 +53,8 @@ PERSONALITY = {
 def zones_for(country: str) -> list[str]:
     """The service zones of a country ("ES" or "MX")."""
     return SERVICE_ZONES[country]
+
+
+def contact_email_for(country: str) -> str:
+    """The contact email of a country ("ES" or "MX")."""
+    return CONTACT_EMAILS[country]

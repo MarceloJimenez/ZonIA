@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS conversations (
     status TEXT NOT NULL,
     fields TEXT NOT NULL,
     history TEXT NOT NULL,
+    failed_turns INTEGER NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -70,8 +71,9 @@ class Storage:
         now = _now()
         with self.db:
             cursor = self.db.execute(
-                "INSERT INTO conversations (country, stage, status, fields, history, created_at, updated_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO conversations"
+                " (country, stage, status, fields, history, failed_turns, created_at, updated_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (conversation.country, *self._state(conversation), now, now),
             )
         return cursor.lastrowid
@@ -87,6 +89,7 @@ class Storage:
             stage=Stage(row["stage"]),
             status=Status(row["status"]),
             country=row["country"],
+            failed_turns=row["failed_turns"],
         )
 
     def save_turn(self, conversation_id: int, conversation: Conversation, turn: TurnResult) -> None:
@@ -97,8 +100,8 @@ class Storage:
         now = _now()
         with self.db:
             updated = self.db.execute(
-                "UPDATE conversations SET stage = ?, status = ?, fields = ?, history = ?, updated_at = ?"
-                " WHERE id = ?",
+                "UPDATE conversations SET stage = ?, status = ?, fields = ?, history = ?, failed_turns = ?,"
+                " updated_at = ? WHERE id = ?",
                 (*self._state(conversation), now, conversation_id),
             )
             if updated.rowcount == 0:
@@ -146,7 +149,7 @@ class Storage:
         return [(row["role"], row["text"]) for row in rows]
 
     @staticmethod
-    def _state(c: Conversation) -> tuple[str, str, str, str]:
-        """stage, status, fields and history, as stored in the conversations row."""
+    def _state(c: Conversation) -> tuple[str, str, str, str, int]:
+        """stage, status, fields, history and failed_turns, as stored in the conversations row."""
         history = ModelMessagesTypeAdapter.dump_json(c.history).decode()
-        return c.stage.value, c.status.value, c.fields.model_dump_json(), history
+        return c.stage.value, c.status.value, c.fields.model_dump_json(), history, c.failed_turns

@@ -8,7 +8,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 
 from zonia.flow import FINAL_STATUSES, decide, render_summary
 from zonia.models import Intent, ScreeningFields, Stage, Status, Turn
-from zonia.prompt import DIRECTIVES, SYSTEM
+from zonia.prompt import DIRECTIVES, SYSTEM, turn_instructions
 
 load_dotenv(".env")
 
@@ -36,7 +36,7 @@ def main() -> None:
     status = Status.ACTIVE
     while status not in FINAL_STATUSES:
         text = input("> ")
-        result = agent.run_sync(text, message_history=history)
+        result = agent.run_sync(text, message_history=history, instructions=turn_instructions(fields))
         fields = fields.model_copy(update=result.output.fields.model_dump(exclude_none=True))
         old_stage, old_status = stage, status
         stage, status = decide(stage, status, result.output.intent, fields)

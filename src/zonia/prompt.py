@@ -1,6 +1,7 @@
-"""Text sent to the LLM: the system prompt and the directives for call 2."""
+"""Text sent to the LLM: the system prompt, the per-turn instructions and the directives for call 2."""
 
-from zonia.models import Status
+from zonia.flow import AVAILABILITY_ES, FIELD_ORDER, SCHEDULE_ES, open_fields
+from zonia.models import ScreeningFields, Status
 
 SYSTEM = (
     "Eres Sonia, la asistente de IA de Grupo Sazón. "
@@ -24,3 +25,44 @@ DIRECTIVES = {
         "revisará su candidatura y le contactará. No hagas más preguntas."
     ),
 }
+
+FIELD_LABELS_ES = {
+    "full_name": "nombre completo",
+    "driver_license": "si tiene carnet de conducir vigente",
+    "city_zone": "ciudad y zona donde vive",
+    "availability": "disponibilidad (tiempo completo, medio tiempo o fines de semana)",
+    "schedule": "horario preferido (mañana, tarde, noche o flexible)",
+    "experience_years": "años de experiencia como repartidor",
+    "experience_platform": "plataforma o empresa donde trabajó de repartidor",
+    "start_date": "fecha en que puede empezar",
+}
+
+
+def _value_es(name: str, value: object) -> str:
+    if isinstance(value, bool):
+        return "sí" if value else "no"
+    if name == "availability":
+        return ", ".join(AVAILABILITY_ES[a] for a in value)
+    if name == "schedule":
+        return ", ".join(SCHEDULE_ES[s] for s in value)
+    return str(value)
+
+
+def turn_instructions(fields: ScreeningFields) -> str:
+    """What call 1 must know this turn: the known fields and the open ones, in order."""
+    known = [
+        f"- {FIELD_LABELS_ES[name]}: {_value_es(name, getattr(fields, name))}"
+        for name in FIELD_ORDER
+        if getattr(fields, name) is not None
+    ]
+    missing = [f"{i}. {FIELD_LABELS_ES[name]}" for i, name in enumerate(open_fields(fields), start=1)]
+    parts = []
+    if known:
+        parts.append("Ya sabes:\n" + "\n".join(known))
+    if missing:
+        parts.append("Falta, en este orden:\n" + "\n".join(missing))
+    parts.append(
+        "Pregunta por los 1 o 2 primeros que falten y que el mensaje del candidato no traiga ya. "
+        "Si falta el nombre, pregunta solo el nombre. Nunca preguntes algo que ya sabes."
+    )
+    return "\n\n".join(parts)

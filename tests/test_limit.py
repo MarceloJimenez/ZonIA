@@ -42,6 +42,7 @@ def test_every_message_after_the_limit_gets_the_same_reply_and_no_llm_call():
     second, _ = run(fake, conversation)
     assert first.reply == second.reply
     assert fake.calls == 0
+    assert conversation.status == Status.INCOMPLETE  # a later message does not reopen it, unlike a time-out
 
 
 def test_failed_turns_count_towards_the_limit():

@@ -41,7 +41,9 @@ def reopens(status: Status, intent: Intent, fields: ScreeningFields) -> bool:
 
     Disqualified: no reason to disqualify is left (licence is not "no", zone is a service zone). Withdrawn: the candidate wants to continue.
     Qualified: the candidate corrects the summary, or is no longer interested (then withdrawn).
-    Incomplete never reopens.
+    Incomplete: any message, because the candidate came back (design 4.1). The conversation continues
+    from the first empty field. A conversation closed by the turn limit never gets here:
+    run_turn_safely stops it before the LLM.
     """
     if status == Status.DISQUALIFIED:
         return not is_disqualified(fields)
@@ -49,7 +51,7 @@ def reopens(status: Status, intent: Intent, fields: ScreeningFields) -> bool:
         return intent == Intent.CONTINUE
     if status == Status.QUALIFIED:
         return intent in {Intent.CORRECTS_SUMMARY, Intent.NOT_INTERESTED}
-    return False
+    return status == Status.INCOMPLETE
 
 
 def decide(stage: Stage, status: Status, intent: Intent, fields: ScreeningFields) -> tuple[Stage, Status]:

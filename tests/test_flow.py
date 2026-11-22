@@ -148,7 +148,6 @@ NO_LICENCE = COMPLETE_NO_EXPERIENCE.model_copy(update={"driver_license": False})
         (Status.DISQUALIFIED, NO_LICENCE),
         (Status.WITHDRAWN, COMPLETE_NO_EXPERIENCE),
         (Status.QUALIFIED, COMPLETE_NO_EXPERIENCE),
-        (Status.INCOMPLETE, COMPLETE_NO_EXPERIENCE),
     ],
 )
 def test_a_message_that_changes_nothing_keeps_the_final_status(status, fields):
@@ -194,10 +193,17 @@ def test_a_qualified_candidate_who_is_no_longer_interested_is_withdrawn():
     )
 
 
-def test_incomplete_never_reopens():
-    # The turn limit closed it; more messages must not bypass the limit.
-    for intent in Intent:
-        assert decide(Stage.CLOSING, Status.INCOMPLETE, intent, COMPLETE_NO_EXPERIENCE)[1] == Status.INCOMPLETE
+def test_any_message_reopens_an_incomplete_conversation_at_the_same_stage():
+    # Design 4.1: the candidate came back after the follow-ups closed it. The turn limit is checked before (zonia.turn).
+    fields = ScreeningFields(full_name="Ana", driver_license=True)
+    assert decide(Stage.DATA_COLLECTION, Status.INCOMPLETE, Intent.NONE, fields) == (Stage.DATA_COLLECTION, Status.ACTIVE)
+
+
+def test_a_reopened_incomplete_candidate_cannot_qualify_before_seeing_the_summary_again():
+    assert decide(Stage.CLOSING, Status.INCOMPLETE, Intent.CONFIRMS_SUMMARY, COMPLETE_NO_EXPERIENCE) == (
+        Stage.CLOSING,
+        Status.ACTIVE,
+    )
 
 
 # --- Service zones ----------------------------------------------------------

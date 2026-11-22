@@ -359,3 +359,16 @@ def test_call_2_and_the_summary_use_the_words_of_the_country():
     conversation = Conversation(country="MX")
     turn = asyncio.run(run_turn(make_agent(FakeLLM([{"fields": all_fields}])), conversation, "Todo"))
     assert "- Licencia de manejo: Sí" in turn.reply.splitlines()
+
+
+def test_a_candidate_who_comes_back_after_incomplete_continues_from_the_first_empty_field():
+    # Design 4.1: the follow-ups closed it after 24 hours without a reply.
+    known = ScreeningFields(full_name="Ana López", driver_license=True)
+    conversation = Conversation(fields=known, stage=Stage.DATA_COLLECTION, status=Status.INCOMPLETE, turns=2)
+    fake = FakeLLM([{"fields": {"city_zone": "Chamberí", "service_zone": "Comunidad de Madrid"}}])
+    turn = asyncio.run(run_turn(make_agent(fake), conversation, "Perdona, vivo en Chamberí"))
+    assert (turn.status, turn.reply_source) == (Status.ACTIVE, "call_1")
+    assert conversation.fields.driver_license is True  # nothing asked again
+    # Call 1 is told what is known and asks from the first empty field.
+    assert "Falta, en este orden:\n1. ciudad y barrio donde vive" in fake.instructions[0]
+    assert "- si tiene carné de conducir vigente: sí" in fake.instructions[0]

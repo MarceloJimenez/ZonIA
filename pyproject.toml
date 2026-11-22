@@ -12,6 +12,8 @@ dependencies = [
     "jinja2>=3.1.6",
     "pydantic-ai-slim[openai]>=2.66.0",
     "python-dotenv>=1.2.4",
+    "python-multipart>=0.0.34",
+    "twilio>=9.13.0",
     "uvicorn>=0.54.0",
 ]
 
@@ -19,6 +21,7 @@ dependencies = [
 zonia = "zonia.main:main"
 zonia-dashboard = "zonia.dashboard:main"
 zonia-followups = "zonia.followups:main"
+zonia-server = "zonia.adapters.http:main"
 
 [build-system]
 requires = ["uv_build>=0.9.13,<0.10.0"]

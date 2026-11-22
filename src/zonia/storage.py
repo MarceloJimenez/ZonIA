@@ -4,6 +4,8 @@ One row per conversation keeps everything run_turn needs to continue it:
 country, stage, status, language, the fields and the LLM history (both as JSON).
 The messages table keeps what the candidate wrote and what Sonia replied, in order.
 waiting_since is the time of Sonia's last reply to the candidate: the follow-ups (zonia.followups) count from it.
+phone is the candidate's number on WhatsApp (E.164, for example "+34600111222"); empty for the terminal chat.
+A message's external_id is the channel's id for it (Twilio's MessageSid): a message that comes twice is saved once.
 """
 
 import sqlite3
@@ -23,6 +25,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS conversations (
     id INTEGER PRIMARY KEY,
     country TEXT NOT NULL,
+    phone TEXT,
     stage TEXT NOT NULL,
     status TEXT NOT NULL,
     fields TEXT NOT NULL,
@@ -41,8 +44,10 @@ CREATE TABLE IF NOT EXISTS messages (
     conversation_id INTEGER NOT NULL REFERENCES conversations(id),
     role TEXT NOT NULL CHECK (role IN ('candidate', 'agent')),
     text TEXT NOT NULL,
+    external_id TEXT UNIQUE,
     created_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS conversations_phone ON conversations(phone);
 """
 
 
@@ -80,10 +85,11 @@ class Storage:
     def close(self) -> None:
         self.db.close()
 
-    def create(self, conversation: Conversation, agent_messages: list[str] = ()) -> int:
+    def create(self, conversation: Conversation, agent_messages: list[str] = (), phone: str | None = None) -> int:
         """Save a new conversation and return its id.
 
         agent_messages are Sonia's first messages (the greeting), saved before any turn.
+        phone is the candidate's WhatsApp number, when the conversation is on WhatsApp.
         A conversation without a case code gets one here. The column is UNIQUE: if the
         code is already taken, a new code is made, before any candidate sees it.
         """
@@ -92,21 +98,21 @@ class Storage:
             if not given:
                 conversation.case_code = new_case_code()
             try:
-                return self._insert(conversation, agent_messages)
+                return self._insert(conversation, agent_messages, phone)
             except sqlite3.IntegrityError:
                 if given:
                     raise
         raise RuntimeError(f"No free case code after {CASE_CODE_TRIES} tries")
 
-    def _insert(self, conversation: Conversation, agent_messages: list[str]) -> int:
+    def _insert(self, conversation: Conversation, agent_messages: list[str], phone: str | None) -> int:
         now = self.clock().isoformat()
         with self.db:
             cursor = self.db.execute(
                 "INSERT INTO conversations"
-                " (country, stage, status, fields, history, failed_turns, case_code, turns, language, followup_step,"
+                " (country, phone, stage, status, fields, history, failed_turns, case_code, turns, language, followup_step,"
                 " waiting_since, created_at, updated_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (conversation.country, *self._state(conversation), now, now, now),
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (conversation.country, phone, *self._state(conversation), now, now, now),
             )
             self.db.executemany(
                 "INSERT INTO messages (conversation_id, role, text, created_at) VALUES (?, 'agent', ?, ?)",
@@ -132,8 +138,12 @@ class Storage:
             followup_step=row["followup_step"],
         )
 
-    def save_turn(self, conversation_id: int, conversation: Conversation, turn: TurnResult) -> None:
+    def save_turn(
+        self, conversation_id: int, conversation: Conversation, turn: TurnResult, external_id: str | None = None
+    ) -> None:
         """Save the conversation after one turn, and the turn's two messages.
+
+        external_id is the channel's id for the candidate's message (Twilio's MessageSid).
 
         One transaction: either everything is saved, or nothing is. Sonia has just replied,
         so waiting_since starts again.
@@ -149,9 +159,21 @@ class Storage:
             if updated.rowcount == 0:
                 raise KeyError(conversation_id)
             self.db.executemany(
-                "INSERT INTO messages (conversation_id, role, text, created_at) VALUES (?, ?, ?, ?)",
-                [(conversation_id, "candidate", turn.message, now), (conversation_id, "agent", turn.reply, now)],
+                "INSERT INTO messages (conversation_id, role, text, external_id, created_at) VALUES (?, ?, ?, ?, ?)",
+                [
+                    (conversation_id, "candidate", turn.message, external_id, now),
+                    (conversation_id, "agent", turn.reply, None, now),
+                ],
             )
+
+    def find_by_phone(self, phone: str) -> int | None:
+        """The id of the newest conversation with this WhatsApp number, or None."""
+        row = self.db.execute("SELECT id FROM conversations WHERE phone = ? ORDER BY id DESC LIMIT 1", (phone,)).fetchone()
+        return None if row is None else row["id"]
+
+    def has_message(self, external_id: str) -> bool:
+        """True if a message with this channel id is already saved."""
+        return self.db.execute("SELECT 1 FROM messages WHERE external_id = ?", (external_id,)).fetchone() is not None
 
     def waiting(self) -> list[tuple[int, datetime]]:
         """(id, waiting_since) of every conversation that waits for the candidate: active or paused."""

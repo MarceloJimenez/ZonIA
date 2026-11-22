@@ -21,6 +21,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "pydantic-evals>=2.66.0",
     "pytest>=9.2.0",
 ]
 

@@ -6,6 +6,7 @@ The messages table keeps what the candidate wrote and what Sonia replied, in ord
 """
 
 import sqlite3
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -37,6 +38,19 @@ CREATE TABLE IF NOT EXISTS messages (
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+@dataclass
+class ConversationRow:
+    """One conversation as the dashboard lists it: no history, plus the times."""
+
+    id: int
+    country: str
+    stage: Stage
+    status: Status
+    fields: ScreeningFields
+    created_at: datetime
+    updated_at: datetime  # the time of the last saved turn
 
 
 class Storage:
@@ -93,6 +107,36 @@ class Storage:
                 "INSERT INTO messages (conversation_id, role, text, created_at) VALUES (?, ?, ?, ?)",
                 [(conversation_id, "candidate", turn.message, now), (conversation_id, "agent", turn.reply, now)],
             )
+
+    def conversations(self) -> list[ConversationRow]:
+        """Every conversation, newest first."""
+        rows = self.db.execute(
+            "SELECT id, country, stage, status, fields, created_at, updated_at FROM conversations"
+            " ORDER BY created_at DESC, id DESC"
+        )
+        return [self._row(row) for row in rows]
+
+    def conversation(self, conversation_id: int) -> ConversationRow:
+        """The conversation with this id, as the dashboard shows it. Raises KeyError if there is none."""
+        row = self.db.execute(
+            "SELECT id, country, stage, status, fields, created_at, updated_at FROM conversations WHERE id = ?",
+            (conversation_id,),
+        ).fetchone()
+        if row is None:
+            raise KeyError(conversation_id)
+        return self._row(row)
+
+    @staticmethod
+    def _row(row: sqlite3.Row) -> ConversationRow:
+        return ConversationRow(
+            id=row["id"],
+            country=row["country"],
+            stage=Stage(row["stage"]),
+            status=Status(row["status"]),
+            fields=ScreeningFields.model_validate_json(row["fields"]),
+            created_at=datetime.fromisoformat(row["created_at"]),
+            updated_at=datetime.fromisoformat(row["updated_at"]),
+        )
 
     def messages(self, conversation_id: int) -> list[tuple[str, str]]:
         """(role, text) for every message of the conversation, in order."""

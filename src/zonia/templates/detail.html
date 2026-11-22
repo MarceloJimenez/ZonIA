@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ row.name }} · ZonIA recruiter{% endblock %}
+{% block content %}
+<a class="back" href="/">← All candidates</a>
+
+<div class="page-head">
+<h1>{{ row.name }}</h1>
+<div class="row-wrap">
+<span class="zn-tag{{ ' zn-tag--ok' if row.qualified }}">{{ row.status }}</span>
+<span class="zn-tag zn-tag--code">{{ row.country }}</span>
+<span class="zn-tag">{{ row.stage }}</span>
+<p>Started {{ row.started }} · Last message {{ row.last }}</p>
+</div>
+</div>
+
+<div class="columns">
+<div class="main">
+
+<div class="zn-panel">
+<div class="zn-panel__hd"><span>Screening fields</span></div>
+{% for label, value in fields %}
+<div class="zn-panel__row"><span class="label">{{ label }}</span><span class="value">{{ value }}</span></div>
+{% endfor %}
+</div>
+
+{% if summary %}
+<div class="zn-panel">
+<div class="zn-panel__hd"><span>Summary shown to the candidate</span></div>
+<div class="zn-panel__row text">{{ summary }}</div>
+</div>
+{% endif %}
+
+</div>
+<div class="side">
+
+<div class="zn-cpanel">
+<div class="zn-cpanel__hd">
+<div class="zn-cpanel__title"><span class="zn-dot"></span>Transcript · {{ messages | length }} messages</div>
+</div>
+<div class="zn-cpanel__body">
+<span class="zn-pill">{{ row.started }}</span>
+{% if messages %}
+<div class="zn-chat">
+{% for role, text in messages %}
+{% if role == "agent" %}
+<div class="zn-msg"><div class="zn-msg__who">Sonia <span>· screening agent</span></div><p class="zn-msg__text">{{ text }}</p></div>
+{% else %}
+<div class="zn-msg zn-msg--me"><div class="zn-msg__who">Candidate</div><p class="zn-msg__text">{{ text }}</p></div>
+{% endif %}
+{% endfor %}
+</div>
+{% else %}
+<p class="zn-cpanel__empty">No messages yet.</p>
+{% endif %}
+</div>
+</div>
+
+</div>
+</div>
+{% endblock %}

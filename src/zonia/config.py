@@ -22,6 +22,14 @@ SERVICE_ZONES = {
 }
 
 
+# The words Sonia uses in Spanish for the licence and the area, per country.
+# Design: docs/plans/Process design draft.md, sections 4.3 and 6. She understands every form in both countries.
+LOCAL_WORDS = {
+    "ES": {"license": "carné de conducir", "area": "barrio"},
+    "MX": {"license": "licencia de manejo", "area": "colonia"},
+}
+
+
 # Sonia's first message, one string per bubble. It says she is an AI.
 # Design: docs/plans/Process design draft.md, section 6, "Examples".
 GREETING = [
@@ -75,6 +83,11 @@ PERSONALITY = {
 def zones_for(country: str) -> list[str]:
     """The service zones of a country ("ES" or "MX")."""
     return SERVICE_ZONES[country]
+
+
+def local_words_for(country: str) -> dict[str, str]:
+    """The Spanish words for the licence and the area in a country ("ES" or "MX")."""
+    return LOCAL_WORDS[country]
 
 
 def contact_email_for(country: str) -> str:

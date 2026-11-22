@@ -23,7 +23,7 @@ def test_every_value_appears_next_to_its_label():
     lines = render_summary(ANA).splitlines()
     for line in [
         "- Nombre: Ana López",
-        "- Carnet de conducir: Sí",
+        "- Carné de conducir: Sí",
         "- Zona: Chamberí, Madrid",
         "- Disponibilidad: Tiempo completo, Fines de semana",
         "- Horario: Mañana, Flexible",
@@ -54,7 +54,7 @@ def test_every_schedule_is_shown_in_spanish(code, label):
 
 def test_licence_no_is_shown_as_no():
     text = render_summary(ANA.model_copy(update={"driver_license": False}))
-    assert "Carnet de conducir: No" in text
+    assert "Carné de conducir: No" in text
 
 
 def test_platform_is_hidden_when_there_is_no_experience():
@@ -78,3 +78,8 @@ def test_summary_greets_by_first_name():
 
 def test_summary_asks_for_confirmation():
     assert render_summary(ANA).rstrip().endswith("¿Está todo correcto?")
+
+
+def test_the_licence_uses_the_word_of_the_country():
+    assert "- Licencia de manejo: Sí" in render_summary(ANA, country="MX").splitlines()
+    assert "- Carné de conducir: Sí" in render_summary(ANA, country="ES").splitlines()

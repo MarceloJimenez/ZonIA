@@ -119,7 +119,7 @@ def create_app(db_path: str | Path) -> FastAPI:
                 "row": list_row(c),
                 "fields": field_rows(c.fields),
                 # The summary is shown once the candidate reaches closing.
-                "summary": render_summary(c.fields) if c.stage == Stage.CLOSING else None,
+                "summary": render_summary(c.fields, country=c.country) if c.stage == Stage.CLOSING else None,
                 "messages": messages,
             },
         )

@@ -1,5 +1,6 @@
 """Stages and statuses. Plain code, no LLM."""
 
+from zonia.config import local_words_for
 from zonia.models import OUTSIDE_ZONE, Intent, ScreeningFields, Stage, Status
 
 FIELD_ORDER = [
@@ -96,7 +97,7 @@ MONTHS_EN = [
 # The words of the summary, per language.
 SUMMARY_TEXT = {
     "es": {
-        "name": "Nombre", "license": "Carnet de conducir", "yes": "Sí", "no": "No", "zone": "Zona",
+        "name": "Nombre", "license": "{license}", "yes": "Sí", "no": "No", "zone": "Zona",
         "availability": "Disponibilidad", "schedule": "Horario", "experience": "Experiencia",
         "year": "año", "years": "años", "platform": "Plataforma", "start": "Fecha de inicio",
         "opening": "Perfecto{name}. Estos son tus datos:", "question": "¿Está todo correcto?",
@@ -118,8 +119,10 @@ def _date(d, language: str) -> str:
     return f"{d.day} de {MONTHS_ES[d.month - 1]} de {d.year}"
 
 
-def render_summary(fields: ScreeningFields, language: str = "es") -> str:
+def render_summary(fields: ScreeningFields, language: str = "es", country: str = "ES") -> str:
     """The summary message, one field per line, in Spanish ("es") or English ("en").
+
+    In Spanish, the licence uses the country's word: "Carné de conducir" in Spain, "Licencia de manejo" in Mexico.
 
     Code renders it so the data is exact. The LLM never types it.
     """
@@ -128,7 +131,8 @@ def render_summary(fields: ScreeningFields, language: str = "es") -> str:
     if fields.full_name is not None:
         lines.append(f"- {t['name']}: {fields.full_name}")
     if fields.driver_license is not None:
-        lines.append(f"- {t['license']}: {t['yes'] if fields.driver_license else t['no']}")
+        license_label = t["license"].format(license=local_words_for(country)["license"].capitalize())
+        lines.append(f"- {license_label}: {t['yes'] if fields.driver_license else t['no']}")
     if fields.city_zone is not None:
         lines.append(f"- {t['zone']}: {fields.city_zone}")
     if fields.availability:

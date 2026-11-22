@@ -45,7 +45,7 @@ class ScreeningFields(BaseModel):
         None,
         description=(
             "Lugar donde vive, con las palabras del candidato. Si es vago (por ejemplo \"cerca del centro\"), "
-            "déjalo vacío, deja vacío service_zone y pregunta la ciudad y el barrio."
+            "déjalo vacío, deja vacío service_zone y pregunta la ciudad y el barrio o la colonia."
         ),
     )
 
@@ -83,7 +83,7 @@ class Turn(BaseModel):
 
 
 SERVICE_ZONE_DESCRIPTION = (
-    "La zona de servicio que contiene el lugar de city_zone (ciudad, barrio o provincia). "
+    "La zona de servicio que contiene el lugar de city_zone (ciudad, barrio, colonia, provincia o estado). "
     f"Si el lugar no está en ninguna zona de la lista, '{OUTSIDE_ZONE}'. "
     "Rellénalo siempre que rellenes city_zone."
 )

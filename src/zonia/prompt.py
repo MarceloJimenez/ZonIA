@@ -1,6 +1,6 @@
 """Text sent to the LLM: the system prompt, the per-turn instructions and the directives for call 2."""
 
-from zonia.config import JOB_FACTS, PERSONALITY
+from zonia.config import JOB_FACTS, PERSONALITY, local_words_for
 from zonia.flow import AVAILABILITY_ES, FIELD_ORDER, MONTHS_ES, SCHEDULE_ES, open_fields
 from datetime import date
 
@@ -33,10 +33,11 @@ NO_CONTACT = "No des ningún correo, teléfono ni código: se añaden después d
 
 DIRECTIVES = {
     Status.DISQUALIFIED: (
-        "El candidato no puede continuar porque el puesto exige carnet de conducir. "
+        "El candidato no puede continuar porque el puesto exige {license}. "
         "Díselo directamente, de tú y con amabilidad, usando \"lamentablemente\". "
         f"Agradécele su tiempo y no hagas más preguntas. {NO_CONTACT}"
     ),
+    # {license} is filled per country by directive().
     Status.WITHDRAWN: (
         "El candidato no quiere continuar. Agradécele su tiempo y despídete. No hagas más preguntas."
     ),
@@ -55,10 +56,11 @@ ZONE_DIRECTIVE = (
     f"Agradécele su tiempo y no hagas más preguntas. {NO_CONTACT}"
 )
 
+# {license} and {area} are the country's words (config.LOCAL_WORDS), filled by field_label().
 FIELD_LABELS_ES = {
     "full_name": "nombre completo",
-    "driver_license": "si tiene carnet de conducir vigente",
-    "city_zone": "ciudad y zona donde vive",
+    "driver_license": "si tiene {license} vigente",
+    "city_zone": "ciudad y {area} donde vive",
     "availability": "disponibilidad (tiempo completo, medio tiempo o fines de semana)",
     "schedule": "horario preferido (mañana, tarde, noche o flexible)",
     "experience_years": "años de experiencia como repartidor",
@@ -67,16 +69,34 @@ FIELD_LABELS_ES = {
 }
 
 
-def directive(status: Status, fields: ScreeningFields) -> str | None:
+def field_label(name: str, country: str) -> str:
+    """How the prompt names a field, with the country's words."""
+    return FIELD_LABELS_ES[name].format(**local_words_for(country))
+
+
+def local_words(country: str) -> str:
+    """The line that tells every call which words to use for the licence and the area."""
+    words = local_words_for(country)
+    return (
+        f"En español, cuando nombres el permiso para conducir, di \"{words['license']}\". "
+        f"Cuando preguntes en qué parte de la ciudad vive, di \"{words['area']}\". "
+        "No uses estas palabras para nada más. "
+        "El candidato puede usar otras palabras (carné, carnet, licencia, permiso, barrio, colonia): "
+        "entiéndelas todas y no le corrijas."
+    )
+
+
+def directive(status: Status, fields: ScreeningFields, country: str = "ES") -> str | None:
     """The instruction for call 2, or None. A disqualified candidate with a licence was cut by zone."""
     if status == Status.DISQUALIFIED and fields.driver_license is not False:
         return ZONE_DIRECTIVE
-    return DIRECTIVES.get(status)
+    text = DIRECTIVES.get(status)
+    return text.format(**local_words_for(country)) if text else None
 
 
-def invalid_directive(problems: dict[str, str]) -> str:
+def invalid_directive(problems: dict[str, str], country: str = "ES") -> str:
     """The instruction for call 2 when code dropped a value the candidate gave."""
-    lines = [f"- {FIELD_LABELS_ES[name]}: {reason}" for name, reason in problems.items()]
+    lines = [f"- {field_label(name, country)}: {reason}" for name, reason in problems.items()]
     return "\n".join([
         "Estos datos del candidato no son válidos y no se han guardado:",
         *lines,
@@ -137,16 +157,17 @@ def reply_language(language: str) -> str:
 
 
 def turn_instructions(
-    fields: ScreeningFields, today: date, facts: list[str] = JOB_FACTS, language: str = "es"
+    fields: ScreeningFields, today: date, facts: list[str] = JOB_FACTS, language: str = "es", country: str = "ES"
 ) -> str:
-    """What call 1 must know this turn: today's date, the known fields, the open ones in order, the job facts and the language."""
+    """What call 1 must know this turn: today's date, the language and the country's words,
+    the known fields, the open ones in order, and the job facts."""
     known = [
-        f"- {FIELD_LABELS_ES[name]}: {_value_es(name, getattr(fields, name))}"
+        f"- {field_label(name, country)}: {_value_es(name, getattr(fields, name))}"
         for name in FIELD_ORDER
         if getattr(fields, name) is not None
     ]
-    missing = [f"{i}. {FIELD_LABELS_ES[name]}" for i, name in enumerate(open_fields(fields), start=1)]
-    parts = [_today_es(today), language_section(language)]
+    missing = [f"{i}. {field_label(name, country)}" for i, name in enumerate(open_fields(fields), start=1)]
+    parts = [_today_es(today), language_section(language), local_words(country)]
     if known:
         parts.append("Ya sabes:\n" + "\n".join(known))
     if missing:

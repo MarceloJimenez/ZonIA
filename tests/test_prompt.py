@@ -3,7 +3,7 @@
 from datetime import date
 
 from zonia.config import JOB_FACTS, PERSONALITY
-from zonia.prompt import DIRECTIVES, FIXED_RULES, SYSTEM, ZONE_DIRECTIVE, build_system, turn_instructions
+from zonia.prompt import DIRECTIVES, FIXED_RULES, SYSTEM, ZONE_DIRECTIVE, build_system, directive, invalid_directive, turn_instructions
 from zonia.models import ScreeningFields, Status
 
 TODAY = date(2026, 11, 22)
@@ -20,7 +20,7 @@ def test_known_data_is_never_listed_as_missing():
     fields = ScreeningFields(full_name="Ana López", driver_license=True, city_zone="Chamberí")
     missing = _missing_section(turn_instructions(fields, TODAY))
     assert "nombre" not in missing
-    assert "carnet" not in missing
+    assert "carné" not in missing
     assert "zona" not in missing
 
 
@@ -35,8 +35,8 @@ def test_missing_fields_are_listed_in_order():
     # With some experience, the platform comes right after it, before the start date.
     missing = _missing_section(turn_instructions(ScreeningFields(full_name="Ana", experience_years=3), TODAY))
     assert missing.splitlines() == [
-        "1. si tiene carnet de conducir vigente",
-        "2. ciudad y zona donde vive",
+        "1. si tiene carné de conducir vigente",
+        "2. ciudad y barrio donde vive",
         "3. disponibilidad (tiempo completo, medio tiempo o fines de semana)",
         "4. horario preferido (mañana, tarde, noche o flexible)",
         "5. plataforma o empresa donde trabajó de repartidor",
@@ -90,3 +90,25 @@ def test_disqualifying_directives_say_lamentablemente():
     # Design rule: bad news uses "lamentablemente", not "lo siento".
     for text in [DIRECTIVES[Status.DISQUALIFIED], ZONE_DIRECTIVE]:
         assert "lamentablemente" in text
+
+
+# --- The country's words (design 4.3): "carné de conducir" and "barrio" in Spain, "licencia de manejo" and "colonia" in Mexico ---
+
+
+def test_call_1_uses_the_words_of_the_country():
+    spain = turn_instructions(ScreeningFields(full_name="Ana"), TODAY, country="ES")
+    mexico = turn_instructions(ScreeningFields(full_name="Ana"), TODAY, country="MX")
+    assert "1. si tiene carné de conducir vigente" in spain and "2. ciudad y barrio donde vive" in spain
+    assert "1. si tiene licencia de manejo vigente" in mexico and "2. ciudad y colonia donde vive" in mexico
+    assert 'cuando nombres el permiso para conducir, di "licencia de manejo".' in mexico
+    assert "carné de conducir" not in mexico
+
+
+def test_the_disqualification_directive_uses_the_word_of_the_country():
+    no_licence = ScreeningFields(driver_license=False)
+    assert "exige licencia de manejo" in directive(Status.DISQUALIFIED, no_licence, "MX")
+    assert "exige carné de conducir" in directive(Status.DISQUALIFIED, no_licence, "ES")
+
+
+def test_the_invalid_value_directive_uses_the_word_of_the_country():
+    assert "ciudad y colonia donde vive" in invalid_directive({"city_zone": "vacío"}, "MX")

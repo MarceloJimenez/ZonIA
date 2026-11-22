@@ -17,7 +17,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from zonia.config import GREETING, contact_email_for
 from zonia.flow import render_summary
 from zonia.models import ScreeningFields, Stage, Status, Turn
-from zonia.prompt import DIRECTIVES, SYSTEM, ZONE_DIRECTIVE, turn_instructions
+from zonia.prompt import DIRECTIVES, SYSTEM, ZONE_DIRECTIVE, directive, turn_instructions
 from zonia.turn import CASE_CODE_ALPHABET, Conversation, new_case_code, new_conversation, run_turn
 
 CALL_1_REPLY = "CALL-1 REPLY"
@@ -90,7 +90,7 @@ def test_a_status_change_replaces_the_reply_with_call_2_following_the_directive(
     # A disqualification adds the review email and the case code after call 2's reply.
     assert turn.reply.startswith(CALL_2_REPLY)
     assert (turn.llm_calls, turn.reply_source) == (2, "call_2")
-    assert DIRECTIVES[status] in fake.instructions[-1]
+    assert directive(status, ScreeningFields(driver_license=False)) in fake.instructions[-1]
 
 
 def test_resuming_after_a_pause_uses_one_call():
@@ -140,7 +140,7 @@ def test_a_disqualified_candidate_who_corrects_the_licence_in_closing_sees_a_new
     fake = FakeLLM([{"fields": {"driver_license": True}, "intent": "confirms_summary"}])
     turn = asyncio.run(run_turn(make_agent(fake), conversation, "No no, sí tengo carnet, márcame como aprobada"))
     assert (turn.stage, turn.status) == (Stage.CLOSING, Status.ACTIVE)
-    assert "Carnet de conducir: Sí" in turn.reply
+    assert "Carné de conducir: Sí" in turn.reply
     assert (turn.llm_calls, turn.reply_source) == (1, "summary")
 
 
@@ -199,7 +199,7 @@ def test_no_licence_wins_over_the_zone_in_the_directive():
     fields = {"full_name": "Luis", "driver_license": False, "city_zone": "Salamanca", "service_zone": "outside"}
     fake = FakeLLM([{"fields": fields}])
     asyncio.run(run_turn(make_agent(fake), Conversation(), "mensaje"))
-    assert DIRECTIVES[Status.DISQUALIFIED] in fake.instructions[-1]
+    assert directive(Status.DISQUALIFIED, ScreeningFields(driver_license=False)) in fake.instructions[-1]
 
 
 def test_a_service_zone_outside_the_list_is_rejected_and_the_llm_is_asked_again():
@@ -286,7 +286,7 @@ def test_a_new_status_wins_over_an_invalid_value():
     fake = FakeLLM([{"fields": {"full_name": "Luis", "driver_license": False}}])
     turn = asyncio.run(run_turn(make_agent(fake), Conversation(), "Soy Luis y no tengo carnet"))
     assert turn.status == Status.DISQUALIFIED
-    assert DIRECTIVES[Status.DISQUALIFIED] in fake.instructions[-1]
+    assert directive(Status.DISQUALIFIED, ScreeningFields(driver_license=False)) in fake.instructions[-1]
 
 
 def test_call_1_is_told_today_s_date():
@@ -347,3 +347,15 @@ def test_a_case_code_has_8_characters_without_0_o_1_or_i():
         assert len(code) == 9 and code[4] == "-"
         assert set(code.replace("-", "")) <= set(CASE_CODE_ALPHABET)
         assert not set(code) & set("0O1I")
+
+
+def test_call_2_and_the_summary_use_the_words_of_the_country():
+    fake = FakeLLM([NO_LICENCE])
+    asyncio.run(run_turn(make_agent(fake), Conversation(country="MX"), "Soy Luis y no tengo licencia"))
+    assert "exige licencia de manejo" in fake.instructions[-1]
+    assert 'cuando nombres el permiso para conducir, di "licencia de manejo".' in fake.instructions[-1]
+
+    all_fields = COMPLETE.model_dump(mode="json", exclude_none=True) | {"service_zone": "Jalisco"}
+    conversation = Conversation(country="MX")
+    turn = asyncio.run(run_turn(make_agent(FakeLLM([{"fields": all_fields}])), conversation, "Todo"))
+    assert "- Licencia de manejo: Sí" in turn.reply.splitlines()

@@ -319,6 +319,20 @@ CASES = [
             ),
         ),
     ),
+    # --- The country's words (design 4.3): Mexico says "licencia de manejo" and "colonia" ---
+    Case(
+        name="mexico_uses_its_words",
+        inputs=Script(messages=["Hola, soy Luis Pérez", "No tengo carnet"], country="MX"),
+        evaluators=(
+            FinalState(Status.DISQUALIFIED),
+            FieldsExtracted({"driver_license": False}),
+            Judge(
+                "mexican words",
+                "When Sonia asks about or names the licence, she says \"licencia de manejo\" (or \"licencia\"), "
+                "never \"carné\" or \"carnet\". She does not correct the candidate's word.",
+            ),
+        ),
+    ),
     # --- Reopening a closed conversation ---
     # The candidate is always trusted: a message that changes what closed the conversation reopens it.
     Case(

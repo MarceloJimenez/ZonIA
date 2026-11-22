@@ -27,7 +27,7 @@ from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, Text
 from zonia.config import GREETING, MAX_TURNS, contact_email_for
 from zonia.flow import FINAL_STATUSES, decide, render_summary
 from zonia.models import Intent, ScreeningFields, Stage, Status, Turn, turn_model
-from zonia.prompt import directive, invalid_directive, reply_language, turn_instructions
+from zonia.prompt import directive, invalid_directive, local_words, reply_language, turn_instructions
 from zonia.validation import validate
 
 
@@ -98,7 +98,7 @@ async def run_turn(
         text,
         message_history=c.history,
         output_type=turn_model(c.country),
-        instructions=turn_instructions(c.fields, today, language=c.language),
+        instructions=turn_instructions(c.fields, today, language=c.language, country=c.country),
     )
     # An invalid value is not saved: the field stays empty, or keeps its earlier value.
     new_values = result.output.fields.model_dump(exclude_none=True)
@@ -115,16 +115,16 @@ async def run_turn(
     )
 
     # Call 2 replaces the reply: a new status first, then a value to ask again.
-    status_directive = directive(status, fields) if status != c.status else None
-    call_2_directive = status_directive or (invalid_directive(problems) if problems else None)
+    status_directive = directive(status, fields, c.country) if status != c.status else None
+    call_2_directive = status_directive or (invalid_directive(problems, c.country) if problems else None)
     if call_2_directive:
         result_2 = await agent.run(
             text, message_history=c.history, output_type=str,
-            instructions=f"{call_2_directive}\n\n{reply_language(language)}",
+            instructions=f"{call_2_directive}\n\n{local_words(c.country)}\n\n{reply_language(language)}",
         )
         reply, history, calls, source = result_2.output, result_2.all_messages(), 2, "call_2"
     elif show_summary:
-        reply = render_summary(fields, language)
+        reply = render_summary(fields, language, c.country)
         history = [
             *c.history,
             ModelRequest(parts=[UserPromptPart(content=text)]),

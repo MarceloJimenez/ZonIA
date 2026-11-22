@@ -77,7 +77,8 @@ def render_summary(fields: ScreeningFields) -> str:
         lines.append(f"- Horario: {', '.join(SCHEDULE_ES[s] for s in fields.schedule)}")
     if fields.experience_years is not None:
         unit = "año" if fields.experience_years == 1 else "años"
-        lines.append(f"- Experiencia: {fields.experience_years:g} {unit}")
+        years = f"{fields.experience_years:g}".replace(".", ",")
+        lines.append(f"- Experiencia: {years} {unit}")
         if fields.experience_years > 0 and fields.experience_platform is not None:
             lines.append(f"- Plataforma: {fields.experience_platform}")
     if fields.start_date is not None:

@@ -1,6 +1,6 @@
 """Stages and statuses. Plain code, no LLM."""
 
-from zonia.models import Intent, ScreeningFields, Stage, Status
+from zonia.models import OUTSIDE_ZONE, Intent, ScreeningFields, Stage, Status
 
 FIELD_ORDER = [
     "full_name",
@@ -30,15 +30,20 @@ def open_fields(fields: ScreeningFields) -> list[str]:
     return result
 
 
+def is_disqualified(fields: ScreeningFields) -> bool:
+    """True when the candidate has no licence, or lives outside the service zones."""
+    return fields.driver_license is False or fields.service_zone == OUTSIDE_ZONE
+
+
 def reopens(status: Status, intent: Intent, fields: ScreeningFields) -> bool:
     """True when a message changes what closed the conversation. The candidate is always trusted.
 
-    Disqualified: the licence is no longer "no". Withdrawn: the candidate wants to continue.
+    Disqualified: no reason to disqualify is left (licence is not "no", zone is a service zone). Withdrawn: the candidate wants to continue.
     Qualified: the candidate corrects the summary, or is no longer interested (then withdrawn).
     Incomplete never reopens.
     """
     if status == Status.DISQUALIFIED:
-        return fields.driver_license is not False
+        return not is_disqualified(fields)
     if status == Status.WITHDRAWN:
         return intent == Intent.CONTINUE
     if status == Status.QUALIFIED:
@@ -53,7 +58,7 @@ def decide(stage: Stage, status: Status, intent: Intent, fields: ScreeningFields
         return stage, status
     if status == Status.PAUSED or reopened:
         status = Status.ACTIVE
-    if fields.driver_license is False:
+    if is_disqualified(fields):
         return stage, Status.DISQUALIFIED
     if intent == Intent.NOT_INTERESTED:
         return stage, Status.WITHDRAWN

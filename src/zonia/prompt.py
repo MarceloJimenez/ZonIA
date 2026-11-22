@@ -26,6 +26,11 @@ DIRECTIVES = {
     ),
 }
 
+ZONE_DIRECTIVE = (
+    "El candidato vive fuera de las zonas donde Grupo Sazón tiene servicio. "
+    "Díselo con amabilidad, agradécele su tiempo y no hagas más preguntas."
+)
+
 FIELD_LABELS_ES = {
     "full_name": "nombre completo",
     "driver_license": "si tiene carnet de conducir vigente",
@@ -36,6 +41,13 @@ FIELD_LABELS_ES = {
     "experience_platform": "plataforma o empresa donde trabajó de repartidor",
     "start_date": "fecha en que puede empezar",
 }
+
+
+def directive(status: Status, fields: ScreeningFields) -> str | None:
+    """The instruction for call 2, or None. A disqualified candidate with a licence was cut by zone."""
+    if status == Status.DISQUALIFIED and fields.driver_license is not False:
+        return ZONE_DIRECTIVE
+    return DIRECTIVES.get(status)
 
 
 def _value_es(name: str, value: object) -> str:
@@ -63,6 +75,7 @@ def turn_instructions(fields: ScreeningFields) -> str:
         parts.append("Falta, en este orden:\n" + "\n".join(missing))
     parts.append(
         "Pregunta por los 1 o 2 primeros que falten y que el mensaje del candidato no traiga ya. "
-        "Si falta el nombre, pregunta solo el nombre. Nunca preguntes algo que ya sabes."
+        "Si falta el nombre, pregunta solo el nombre. Nunca preguntes algo que ya sabes. "
+        "No leas la lista de zonas de servicio al candidato: pregunta dónde vive."
     )
     return "\n\n".join(parts)

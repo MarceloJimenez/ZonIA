@@ -2,9 +2,14 @@
 
 from datetime import date
 from enum import StrEnum
+from functools import cache
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, create_model, model_validator
+
+from zonia.config import zones_for
+
+OUTSIDE_ZONE = "outside"  # service_zone value when the place is in no service zone
 
 
 class Stage(StrEnum):
@@ -36,7 +41,10 @@ class ScreeningFields(BaseModel):
 
     driver_license: Optional[bool] = None
 
-    city_zone: Optional[str] = None
+    city_zone: Optional[str] = Field(None, description="Lugar donde vive, con las palabras del candidato.")
+
+    # Filled together with city_zone. turn_model() narrows it to the country's zones.
+    service_zone: Optional[str] = None
 
     availability: Optional[list[Literal["full-time", "part-time", "weekends"]]] = None
 
@@ -55,3 +63,32 @@ class Turn(BaseModel):
     intent: Intent
 
     reply: str
+
+
+SERVICE_ZONE_DESCRIPTION = (
+    "La zona de servicio que contiene el lugar de city_zone (ciudad, barrio o provincia). "
+    f"Si el lugar no está en ninguna zona de la lista, '{OUTSIDE_ZONE}'. "
+    "Rellénalo siempre que rellenes city_zone."
+)
+
+
+@cache
+def turn_model(country: str) -> type[Turn]:
+    """Turn for one country: service_zone accepts only that country's zones or OUTSIDE_ZONE.
+
+    Any other value fails validation, and Pydantic AI asks the LLM again.
+    """
+    zone = Literal[tuple([*zones_for(country), OUTSIDE_ZONE])]
+    fields_model = create_model(
+        f"ScreeningFields{country}",
+        __base__=ScreeningFields,
+        __validators__={"_zone_with_place": model_validator(mode="after")(_zone_with_place)},
+        service_zone=(Optional[zone], Field(None, description=SERVICE_ZONE_DESCRIPTION)),
+    )
+    return create_model(f"Turn{country}", __base__=Turn, fields=(fields_model, ...))
+
+
+def _zone_with_place(fields: ScreeningFields) -> ScreeningFields:
+    if (fields.city_zone is None) != (fields.service_zone is None):
+        raise ValueError("city_zone y service_zone van juntos: rellena los dos o ninguno.")
+    return fields

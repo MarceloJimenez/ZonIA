@@ -10,12 +10,13 @@ from datetime import date, timedelta
 
 import pytest
 from pydantic_ai import Agent
+from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from zonia.flow import render_summary
 from zonia.models import ScreeningFields, Stage, Status, Turn
-from zonia.prompt import DIRECTIVES, SYSTEM, turn_instructions
+from zonia.prompt import DIRECTIVES, SYSTEM, ZONE_DIRECTIVE, turn_instructions
 from zonia.turn import Conversation, run_turn
 
 CALL_1_REPLY = "CALL-1 REPLY"
@@ -24,7 +25,7 @@ CALL_2_REPLY = "CALL-2 REPLY"
 START = date.today() + timedelta(days=10)
 
 COMPLETE = ScreeningFields(
-    full_name="Ana López", driver_license=True, city_zone="Chamberí", availability=["full-time"],
+    full_name="Ana López", driver_license=True, city_zone="Chamberí", service_zone="Comunidad de Madrid", availability=["full-time"],
     schedule=["morning"], experience_years=0, start_date=START,
 )
 
@@ -94,7 +95,7 @@ def test_resuming_after_a_pause_uses_one_call():
     paused = Conversation(
         fields=ScreeningFields(full_name="Ana", driver_license=True), stage=Stage.DATA_COLLECTION, status=Status.PAUSED
     )
-    fake = FakeLLM([{"fields": {"city_zone": "Chamberí"}}])
+    fake = FakeLLM([{"fields": {"city_zone": "Chamberí", "service_zone": "Comunidad de Madrid"}}])
     turn = asyncio.run(run_turn(make_agent(fake), paused, "Ya puedo, vivo en Chamberí"))
     assert turn.status == Status.ACTIVE
     assert (turn.reply, turn.llm_calls, turn.reply_source) == (CALL_1_REPLY, 1, "call_1")
@@ -122,7 +123,7 @@ def test_the_summary_is_written_by_code_and_kept_in_the_history():
 
 def test_a_correction_shows_a_new_summary_with_the_new_value():
     conversation = Conversation(fields=COMPLETE, stage=Stage.CLOSING)
-    fake = FakeLLM([{"fields": {"city_zone": "Salamanca"}, "intent": "corrects_summary"}])
+    fake = FakeLLM([{"fields": {"city_zone": "Salamanca", "service_zone": "Comunidad de Madrid"}, "intent": "corrects_summary"}])
     turn = asyncio.run(run_turn(make_agent(fake), conversation, "No, mi zona es Salamanca"))
     assert "Zona: Salamanca" in turn.reply
     assert "Chamberí" not in turn.reply
@@ -142,7 +143,7 @@ def test_a_disqualified_candidate_who_corrects_the_licence_in_closing_sees_a_new
 
 def test_a_qualified_candidate_who_corrects_a_value_sees_a_new_summary():
     conversation = Conversation(fields=COMPLETE, stage=Stage.CLOSING, status=Status.QUALIFIED)
-    fake = FakeLLM([{"fields": {"city_zone": "Salamanca"}, "intent": "corrects_summary"}])
+    fake = FakeLLM([{"fields": {"city_zone": "Salamanca", "service_zone": "Comunidad de Madrid"}, "intent": "corrects_summary"}])
     turn = asyncio.run(run_turn(make_agent(fake), conversation, "Perdón, mi zona es Salamanca"))
     assert turn.status == Status.ACTIVE
     assert "Zona: Salamanca" in turn.reply
@@ -176,3 +177,69 @@ def test_a_failed_llm_call_leaves_the_conversation_unchanged():
     assert conversation.status == Status.ACTIVE
     assert conversation.fields.full_name is None
     assert conversation.history == []
+
+
+# --- Service zones ----------------------------------------------------------
+
+
+def test_a_place_outside_the_service_zones_disqualifies_with_the_zone_directive():
+    fields = {"full_name": "Luis", "driver_license": True, "city_zone": "Salamanca", "service_zone": "outside"}
+    fake = FakeLLM([{"fields": fields}])
+    turn = asyncio.run(run_turn(make_agent(fake), Conversation(), "Soy Luis, tengo carnet y vivo en Salamanca"))
+    assert turn.status == Status.DISQUALIFIED
+    assert (turn.reply, turn.llm_calls) == (CALL_2_REPLY, 2)
+    assert ZONE_DIRECTIVE in fake.instructions[-1]
+
+
+def test_no_licence_wins_over_the_zone_in_the_directive():
+    fields = {"full_name": "Luis", "driver_license": False, "city_zone": "Salamanca", "service_zone": "outside"}
+    fake = FakeLLM([{"fields": fields}])
+    asyncio.run(run_turn(make_agent(fake), Conversation(), "mensaje"))
+    assert DIRECTIVES[Status.DISQUALIFIED] in fake.instructions[-1]
+
+
+def test_a_service_zone_outside_the_list_is_rejected_and_the_llm_is_asked_again():
+    # "Sevilla" is a place, not a service zone. Validation fails and Pydantic AI retries call 1.
+    fake = FakeLLM([
+        {"fields": {"city_zone": "Sevilla", "service_zone": "Sevilla"}},
+        {"fields": {"city_zone": "Sevilla", "service_zone": "Andalucía"}},
+    ])
+    conversation = Conversation(fields=ScreeningFields(full_name="Ana", driver_license=True))
+    turn = asyncio.run(run_turn(make_agent(fake), conversation, "Vivo en Sevilla"))
+    assert (conversation.fields.city_zone, conversation.fields.service_zone) == ("Sevilla", "Andalucía")
+    assert turn.status == Status.ACTIVE
+    assert fake.turns == []  # both scripted answers were used
+
+
+def test_a_place_without_a_service_zone_is_rejected_and_the_llm_is_asked_again():
+    fake = FakeLLM([
+        {"fields": {"city_zone": "Barcelona"}},
+        {"fields": {"city_zone": "Barcelona", "service_zone": "Cataluña"}},
+    ])
+    conversation = Conversation(fields=ScreeningFields(full_name="Ana", driver_license=True))
+    asyncio.run(run_turn(make_agent(fake), conversation, "Vivo en Barcelona"))
+    assert conversation.fields.service_zone == "Cataluña"
+
+
+def test_the_service_zones_depend_on_the_country():
+    # Jalisco is a service zone in Mexico; in Spain it fails validation twice and the turn fails.
+    jalisco = {"fields": {"city_zone": "Guadalajara", "service_zone": "Jalisco"}}
+    mexico = Conversation(fields=ScreeningFields(full_name="Luis", driver_license=True), country="MX")
+    asyncio.run(run_turn(make_agent(FakeLLM([jalisco])), mexico, "Vivo en Guadalajara"))
+    assert mexico.fields.service_zone == "Jalisco"
+    spain = Conversation(fields=ScreeningFields(full_name="Luis", driver_license=True), country="ES")
+    with pytest.raises(UnexpectedModelBehavior):
+        asyncio.run(run_turn(make_agent(FakeLLM([jalisco, jalisco])), spain, "Vivo en Guadalajara"))
+    assert spain.fields.service_zone is None  # a failed turn changes nothing
+
+
+def test_a_candidate_disqualified_by_zone_reopens_with_a_place_in_a_service_zone():
+    conversation = Conversation(
+        fields=COMPLETE.model_copy(update={"city_zone": "Salamanca", "service_zone": "outside"}),
+        stage=Stage.CLOSING,
+        status=Status.DISQUALIFIED,
+    )
+    fake = FakeLLM([{"fields": {"city_zone": "Vigo", "service_zone": "Galicia"}}])
+    turn = asyncio.run(run_turn(make_agent(fake), conversation, "Perdón, vivo en Vigo"))
+    assert (turn.status, turn.stage, turn.reply_source) == (Status.ACTIVE, Stage.CLOSING, "summary")
+    assert "Zona: Vigo" in turn.reply

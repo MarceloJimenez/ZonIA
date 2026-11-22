@@ -23,6 +23,11 @@ SAYS_DISQUALIFIED = Judge(
     "Sonia's last reply tells the candidate kindly that they cannot continue because the job "
     "requires a driving licence, and it asks no further screening questions.",
 )
+SAYS_OUTSIDE_ZONE = Judge(
+    "follows directive",
+    "Sonia's last reply tells the candidate kindly that they cannot continue because they live "
+    "outside the zones where the company has service, and it asks no further screening questions.",
+)
 SAYS_WITHDRAWN = Judge(
     "follows directive",
     "Sonia's last reply thanks the candidate and says goodbye. It does not ask screening "
@@ -66,6 +71,7 @@ ANA_FIELDS = {
     "full_name": "Ana López",
     "driver_license": True,
     "city_zone": "Chamberí",
+    "service_zone": "Comunidad de Madrid",
     "availability": ["full-time"],
     "schedule": ["morning"],
     "experience_years": 2,
@@ -112,6 +118,27 @@ CASES = [
         evaluators=(FinalState(Status.DISQUALIFIED), SAYS_DISQUALIFIED),
     ),
     Case(
+        name="zone_outside_the_list",
+        # Salamanca is a Spanish city, but its region (Castilla y León) is not a service zone.
+        inputs=Script(messages=["Hola, soy Luis Pérez", "Tengo carnet y vivo en Salamanca"]),
+        evaluators=(
+            FieldsExtracted({"city_zone": "Salamanca", "service_zone": "outside"}),
+            FinalState(Status.DISQUALIFIED, Stage.DATA_COLLECTION),
+            SAYS_OUTSIDE_ZONE,
+        ),
+    ),
+    Case(
+        name="reopens_after_outside_zone",
+        inputs=Script(
+            messages=["Hola, soy Luis Pérez", "Tengo carnet y vivo en Salamanca", "Perdón, me equivoqué: vivo en Barcelona"]
+        ),
+        evaluators=(
+            StatusAt(1, Status.DISQUALIFIED),
+            FieldsExtracted({"city_zone": "Barcelona", "service_zone": "Cataluña"}),
+            FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
+        ),
+    ),
+    Case(
         name="full_run_qualified",
         inputs=Script(messages=[*ANA, "Sí, todo correcto"]),
         evaluators=(
@@ -124,11 +151,11 @@ CASES = [
     # --- Data in any order ---
     Case(
         name="corrects_the_summary",
-        inputs=Script(messages=[*ANA, "No, mi zona es Salamanca", "Ahora sí, todo correcto"]),
+        inputs=Script(messages=[*ANA, "No, mi zona es Sevilla", "Ahora sí, todo correcto"]),
         evaluators=(
             IntentAt(5, Intent.CORRECTS_SUMMARY),
             SummaryAt(5),
-            FieldsExtracted({"city_zone": "Salamanca"}),
+            FieldsExtracted({"city_zone": "Sevilla", "service_zone": "Andalucía"}),
             FinalState(Status.QUALIFIED),
         ),
     ),
@@ -139,7 +166,8 @@ CASES = [
                 "Hola, soy Luis Pérez, tengo carnet, vivo en Coyoacán CDMX, busco medio tiempo los fines "
                 f"de semana, horario flexible, no tengo experiencia y puedo empezar el {spoken(LUIS_START)}",
                 "Sí, correcto",
-            ]
+            ],
+            country="MX",
         ),
         evaluators=(
             SummaryAt(0),
@@ -148,6 +176,7 @@ CASES = [
                     "full_name": "Luis Pérez",
                     "driver_license": True,
                     "city_zone": "Coyoacán",
+                    "service_zone": "Ciudad de México",
                     "availability": ["part-time", "weekends"],
                     "schedule": ["flexible"],
                     "experience_years": 0,
@@ -161,7 +190,7 @@ CASES = [
         name="zone_before_it_is_asked",
         inputs=Script(messages=["Hola, soy Marta Ruiz y vivo en Salamanca, Madrid", "Sí, tengo carnet"]),
         evaluators=(
-            FieldsExtracted({"city_zone": "Salamanca", "driver_license": True}),
+            FieldsExtracted({"city_zone": "Salamanca", "service_zone": "Comunidad de Madrid", "driver_license": True}),
             Judge("zone not asked", "Sonia never asks the candidate where they live or in which zone."),
         ),
     ),
@@ -175,7 +204,8 @@ CASES = [
                 "No tengo experiencia como repartidor",
                 f"Puedo empezar el {spoken(CARLOS_START)}",
                 "Sí, está bien",
-            ]
+            ],
+            country="MX",
         ),
         evaluators=(
             FieldsExtracted({"driver_license": True, "experience_years": 0}),
@@ -207,12 +237,12 @@ CASES = [
     ),
     Case(
         name="qualified_corrects_a_field",
-        inputs=Script(messages=[*ANA, "Sí, todo correcto", "Perdón, mi zona es Salamanca"]),
+        inputs=Script(messages=[*ANA, "Sí, todo correcto", "Perdón, mi zona es Sevilla"]),
         evaluators=(
             StatusAt(5, Status.QUALIFIED),
             IntentAt(6, Intent.CORRECTS_SUMMARY),
             SummaryAt(6),
-            FieldsExtracted({"city_zone": "Salamanca"}),
+            FieldsExtracted({"city_zone": "Sevilla", "service_zone": "Andalucía"}),
             FinalState(Status.ACTIVE, Stage.CLOSING),
         ),
     ),

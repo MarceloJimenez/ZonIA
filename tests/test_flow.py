@@ -9,12 +9,13 @@ from datetime import date, timedelta
 import pytest
 
 from zonia.flow import decide
-from zonia.models import Intent, ScreeningFields, Stage, Status
+from zonia.models import OUTSIDE_ZONE, Intent, ScreeningFields, Stage, Status
 
 COMPLETE_NO_EXPERIENCE = ScreeningFields(
     full_name="Ana López",
     driver_license=True,
     city_zone="Chamberí, Madrid",
+    service_zone="Comunidad de Madrid",
     availability=["full-time"],
     schedule=["morning"],
     experience_years=0,
@@ -197,3 +198,39 @@ def test_incomplete_never_reopens():
     # The turn limit closed it; more messages must not bypass the limit.
     for intent in Intent:
         assert decide(Stage.CLOSING, Status.INCOMPLETE, intent, COMPLETE_NO_EXPERIENCE)[1] == Status.INCOMPLETE
+
+
+# --- Service zones ----------------------------------------------------------
+# The second knock-out rule. The LLM picks service_zone from the country's list (zonia.config);
+# code only reads it.
+
+OUTSIDE = COMPLETE_NO_EXPERIENCE.model_copy(update={"city_zone": "Salamanca", "service_zone": OUTSIDE_ZONE})
+
+
+@pytest.mark.parametrize("stage", list(Stage))
+def test_a_place_outside_the_service_zones_disqualifies_at_any_stage(stage):
+    assert decide(stage, Status.ACTIVE, Intent.NONE, OUTSIDE)[1] == Status.DISQUALIFIED
+
+
+def test_an_unknown_zone_does_not_disqualify():
+    # An empty field is not an outside zone.
+    fields = ScreeningFields(full_name="Luis", driver_license=True)
+    assert decide(Stage.DATA_COLLECTION, Status.ACTIVE, Intent.NONE, fields)[1] == Status.ACTIVE
+
+
+def test_giving_a_place_in_a_service_zone_reopens_a_candidate_disqualified_by_zone():
+    assert decide(Stage.CLOSING, Status.DISQUALIFIED, Intent.NONE, COMPLETE_NO_EXPERIENCE) == (
+        Stage.CLOSING,
+        Status.ACTIVE,
+    )
+
+
+def test_a_candidate_disqualified_by_zone_stays_closed_while_the_place_is_still_outside():
+    assert decide(Stage.CLOSING, Status.DISQUALIFIED, Intent.NONE, OUTSIDE) == (Stage.CLOSING, Status.DISQUALIFIED)
+
+
+def test_a_candidate_with_no_licence_and_an_outside_zone_needs_both_corrected():
+    only_zone_fixed = NO_LICENCE  # licence still "no", zone now inside
+    only_licence_fixed = OUTSIDE  # licence "yes", zone still outside
+    assert decide(Stage.CLOSING, Status.DISQUALIFIED, Intent.NONE, only_zone_fixed)[1] == Status.DISQUALIFIED
+    assert decide(Stage.CLOSING, Status.DISQUALIFIED, Intent.NONE, only_licence_fixed)[1] == Status.DISQUALIFIED

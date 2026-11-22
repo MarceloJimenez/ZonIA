@@ -20,6 +20,7 @@ class Script(BaseModel):
     """The candidate's messages, sent one per turn."""
 
     messages: list[str]
+    country: str = "ES"  # decides the service zones
 
 
 class Transcript(BaseModel):
@@ -65,7 +66,7 @@ AGENT = build_agent(MODEL)
 
 async def converse(script: Script) -> Transcript:
     """Send each message as one turn. A final status does not stop it: a later message can reopen it."""
-    conversation = Conversation()
+    conversation = Conversation(country=script.country)
     turns = []
     for message in script.messages:
         turns.append(await with_retries(lambda: run_turn(AGENT, conversation, message)))

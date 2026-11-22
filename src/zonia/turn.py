@@ -14,8 +14,8 @@ from pydantic_ai import Agent
 from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, UserPromptPart
 
 from zonia.flow import FINAL_STATUSES, decide, render_summary
-from zonia.models import Intent, ScreeningFields, Stage, Status, Turn
-from zonia.prompt import DIRECTIVES, turn_instructions
+from zonia.models import Intent, ScreeningFields, Stage, Status, Turn, turn_model
+from zonia.prompt import directive, turn_instructions
 
 
 @dataclass
@@ -26,6 +26,7 @@ class Conversation:
     fields: ScreeningFields = field(default_factory=ScreeningFields)
     stage: Stage = Stage.INTRODUCTION
     status: Status = Status.ACTIVE
+    country: str = "ES"  # "ES" or "MX"; decides the service zones
 
 
 class TurnResult(BaseModel):
@@ -47,7 +48,9 @@ async def run_turn(agent: Agent[None, Turn], conversation: Conversation, text: s
     (for example, a rate-limit error) leaves it as it was and can be retried.
     """
     c = conversation
-    result = await agent.run(text, message_history=c.history, instructions=turn_instructions(c.fields))
+    result = await agent.run(
+        text, message_history=c.history, output_type=turn_model(c.country), instructions=turn_instructions(c.fields)
+    )
     fields = c.fields.model_copy(update=result.output.fields.model_dump(exclude_none=True))
     intent = result.output.intent
     stage, status = decide(c.stage, c.status, intent, fields)
@@ -57,9 +60,10 @@ async def run_turn(agent: Agent[None, Turn], conversation: Conversation, text: s
         and (c.stage != Stage.CLOSING or intent == Intent.CORRECTS_SUMMARY or c.status in FINAL_STATUSES)
     )
 
-    if status != c.status and status in DIRECTIVES:
+    status_directive = directive(status, fields)
+    if status != c.status and status_directive:
         result_2 = await agent.run(
-            text, message_history=c.history, output_type=str, instructions=DIRECTIVES[status]
+            text, message_history=c.history, output_type=str, instructions=status_directive
         )
         reply, history, calls, source = result_2.output, result_2.all_messages(), 2, "call_2"
     elif show_summary:

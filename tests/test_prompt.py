@@ -1,9 +1,10 @@
-"""What call 1 is told each turn: what is known, and what is still missing, in order."""
+"""What the LLM is told: the system prompt, and each turn what is known and what is still missing, in order."""
 
 from datetime import date
 
-from zonia.prompt import turn_instructions
-from zonia.models import ScreeningFields
+from zonia.config import PERSONALITY
+from zonia.prompt import DIRECTIVES, FIXED_RULES, SYSTEM, ZONE_DIRECTIVE, build_system, turn_instructions
+from zonia.models import ScreeningFields, Status
 
 
 def _missing_section(text: str) -> str:
@@ -52,3 +53,24 @@ def test_nothing_missing_when_complete():
         schedule=["morning"], experience_years=0, start_date=date(2026, 12, 1),
     )
     assert "Falta" not in turn_instructions(fields)
+
+
+# --- System prompt ----------------------------------------------------------
+
+
+def test_the_system_prompt_has_every_personality_dimension_and_every_fixed_rule():
+    for text in [*PERSONALITY.values(), *FIXED_RULES]:
+        assert text in SYSTEM
+
+
+def test_a_client_personality_replaces_the_default_and_keeps_the_fixed_rules():
+    system = build_system({"identidad": "Eres Leo, el asistente de IA de Otra Empresa."})
+    assert "Leo" in system
+    assert "Sonia" not in system
+    assert all(rule in system for rule in FIXED_RULES)
+
+
+def test_disqualifying_directives_say_lamentablemente():
+    # Design rule: bad news uses "lamentablemente", not "lo siento".
+    for text in [DIRECTIVES[Status.DISQUALIFIED], ZONE_DIRECTIVE]:
+        assert "lamentablemente" in text

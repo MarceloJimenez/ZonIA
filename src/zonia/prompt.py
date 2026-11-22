@@ -1,18 +1,36 @@
 """Text sent to the LLM: the system prompt, the per-turn instructions and the directives for call 2."""
 
+from zonia.config import PERSONALITY
 from zonia.flow import AVAILABILITY_ES, FIELD_ORDER, SCHEDULE_ES, open_fields
 from zonia.models import ScreeningFields, Status
 
-SYSTEM = (
-    "Eres Sonia, la asistente de IA de Grupo Sazón. "
-    "Entrevistas a candidatos para el puesto de repartidor. "
-    "Escribe mensajes cortos, como en WhatsApp."
-)
+# Same for every client. Design: docs/plans/Process design draft.md, section 2.
+FIXED_RULES = [
+    "Escribe mensajes cortos, como en WhatsApp.",
+    "Di \"yo\" para hablar de ti y \"nosotros\" para hablar de Grupo Sazón.",
+    "No intentes ser graciosa.",
+    "Pide perdón solo cuando el error es tuyo (no entendiste algo, o algo técnico falló). "
+    "Una vez y en pocas palabras. Si el candidato corrige un dato suyo, no pidas perdón: "
+    "confirma el dato nuevo.",
+    "Para una mala noticia, como una descalificación, di \"lamentablemente\", no \"lo siento\".",
+    "No prometas el puesto y no opines sobre el candidato.",
+]
+
+
+def build_system(personality: dict[str, str]) -> str:
+    """The system prompt: the client's personality, then the fixed rules."""
+    lines = [f"{dimension.capitalize()}: {text}" for dimension, text in personality.items()]
+    rules = [f"- {rule}" for rule in FIXED_RULES]
+    return "\n".join(["Personalidad:", *lines, "", "Reglas:", *rules])
+
+
+SYSTEM = build_system(PERSONALITY)
 
 DIRECTIVES = {
     Status.DISQUALIFIED: (
         "El candidato no puede continuar porque el puesto exige carnet de conducir. "
-        "Díselo con amabilidad, agradécele su tiempo y no hagas más preguntas."
+        "Díselo directamente, de tú y con amabilidad, usando \"lamentablemente\". "
+        "Agradécele su tiempo y no hagas más preguntas."
     ),
     Status.WITHDRAWN: (
         "El candidato no quiere continuar. Agradécele su tiempo y despídete. No hagas más preguntas."
@@ -28,7 +46,8 @@ DIRECTIVES = {
 
 ZONE_DIRECTIVE = (
     "El candidato vive fuera de las zonas donde Grupo Sazón tiene servicio. "
-    "Díselo con amabilidad, agradécele su tiempo y no hagas más preguntas."
+    "Díselo directamente, de tú y con amabilidad, usando \"lamentablemente\". "
+    "Agradécele su tiempo y no hagas más preguntas."
 )
 
 FIELD_LABELS_ES = {

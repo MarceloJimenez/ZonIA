@@ -16,17 +16,20 @@ NO_REPEATED_QUESTION = Judge(
     "no repeated question",
     "Sonia never asks the candidate for information the candidate already gave, earlier in the "
     "conversation or in the same message. Asking again for something not answered yet is fine. "
-    "Showing a summary of the data and asking to confirm it is not a repeated question.",
+    "Showing a summary of the data and asking to confirm it is not a repeated question. "
+    "Naming a requirement to explain why the candidate cannot continue is not a question.",
 )
 SAYS_DISQUALIFIED = Judge(
     "follows directive",
     "Sonia's last reply tells the candidate kindly that they cannot continue because the job "
-    "requires a driving licence, and it asks no further screening questions.",
+    "requires a driving licence, and it asks no further screening questions. It speaks to the "
+    "candidate directly (\"tú\"), never about \"el candidato\" in the third person.",
 )
 SAYS_OUTSIDE_ZONE = Judge(
     "follows directive",
     "Sonia's last reply tells the candidate kindly that they cannot continue because they live "
-    "outside the zones where the company has service, and it asks no further screening questions.",
+    "outside the zones where the company has service, and it asks no further screening questions. "
+    "It speaks to the candidate directly (\"tú\"), never about \"el candidato\" in the third person.",
 )
 SAYS_WITHDRAWN = Judge(
     "follows directive",

@@ -30,6 +30,11 @@ GREETING = [
 ]
 
 
+# Most candidate messages in one conversation, against abuse and runaway LLM cost.
+# A normal conversation takes about 6; 60 leaves room for corrections and questions.
+MAX_TURNS = 60
+
+
 # Where a candidate writes when Sonia cannot go on (for example, the LLM keeps failing).
 CONTACT_EMAILS = {
     "ES": "seleccion.es@gruposazon.example",

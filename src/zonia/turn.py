@@ -21,7 +21,7 @@ from pydantic_ai import Agent
 from pydantic_ai.exceptions import ModelAPIError, ModelHTTPError
 from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, UserPromptPart
 
-from zonia.config import GREETING, contact_email_for
+from zonia.config import GREETING, MAX_TURNS, contact_email_for
 from zonia.flow import FINAL_STATUSES, decide, render_summary
 from zonia.models import Intent, ScreeningFields, Stage, Status, Turn, turn_model
 from zonia.prompt import directive, invalid_directive, turn_instructions
@@ -39,6 +39,7 @@ class Conversation:
     country: str = "ES"  # "ES" or "MX"; decides the service zones
     failed_turns: int = 0  # turns in a row that ended in a technical failure
     case_code: str | None = None  # storage gives it; the candidate gets it on disqualification
+    turns: int = 0  # candidate messages so far, failed turns included
 
 
 REVIEW_REPLY = "Si quieres que una persona revise tu caso, escribe a {email} con el código {code}."
@@ -70,8 +71,8 @@ class TurnResult(BaseModel):
     intent: Intent
     stage: Stage
     status: Status
-    llm_calls: int  # 0 when the turn failed (reply_source "fallback")
-    reply_source: str  # "call_1", "call_2", "summary" or "fallback"
+    llm_calls: int  # 0 when the turn failed ("fallback") or the turn limit was reached ("limit")
+    reply_source: str  # "call_1", "call_2", "summary", "fallback" or "limit"
     invalid_fields: list[str] = []  # values the candidate gave that code dropped
 
 
@@ -148,6 +149,10 @@ RETRY_DELAYS = [1, 2, 4]  # seconds to wait before each new try
 MAX_RETRY_WAIT = 30  # seconds; a longer Retry-After from the provider is cut to this
 
 FAILURE_REPLY = "Perdona, he tenido un problema técnico. ¿Puedes repetir tu último mensaje?"
+LIMIT_REPLY = (
+    "Hemos llegado al límite de esta conversación. "
+    "Si quieres seguir con tu candidatura, escribe a {email}."
+)
 CONTACT_REPLY = (
     "Seguimos con un problema técnico. Escríbenos a {email} con tu nombre y tu teléfono, "
     "y una persona del equipo seguirá con tu candidatura. También puedes intentarlo aquí más tarde."
@@ -171,13 +176,27 @@ async def run_turn_safely(
     today: date | None = None,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> TurnResult:
-    """run_turn that never raises.
+    """run_turn that never raises, and stops at the turn limit.
+
+    From message MAX_TURNS on, the LLM is not called: the candidate gets a fixed reply
+    with the contact email, and an open conversation ends as incomplete.
+    A final status (qualified, disqualified, withdrawn) is kept: it is a real result.
 
     A transient error is tried again, up to len(RETRY_DELAYS) times. If the turn still fails,
     the candidate gets a fixed reply and the conversation keeps its state.
     The first failure asks the candidate to repeat; from the second failure in a row on,
     the reply gives the contact email, so the candidate is not lost.
     """
+    c = conversation
+    c.turns += 1
+    if c.turns >= MAX_TURNS:
+        if c.status not in FINAL_STATUSES:
+            c.status = Status.INCOMPLETE
+        return TurnResult(
+            message=text, reply=LIMIT_REPLY.format(email=contact_email_for(c.country)), intent=Intent.NONE,
+            stage=c.stage, status=c.status, llm_calls=0, reply_source="limit",
+        )
+
     for attempt in range(len(RETRY_DELAYS) + 1):
         try:
             return await run_turn(agent, conversation, text, today)
@@ -188,7 +207,6 @@ async def run_turn_safely(
             wait = getattr(error, "retry_after", None) or RETRY_DELAYS[attempt]
             await sleep(min(wait, MAX_RETRY_WAIT))
 
-    c = conversation
     c.failed_turns += 1
     reply = FAILURE_REPLY if c.failed_turns == 1 else CONTACT_REPLY.format(email=contact_email_for(c.country))
     return TurnResult(

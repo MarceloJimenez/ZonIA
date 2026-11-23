@@ -44,7 +44,6 @@ GREETING = [
 # Only facts from the assignment (docs/ASSIGNMENT.md); the client adds more here.
 # For anything not listed (pay, shift hours...), Sonia says she does not have that information.
 JOB_FACTS = [
-    "Grupo Sazón es una cadena de restaurantes con 45 locales en España y México.",
     "El puesto es de repartidor.",
 ]
 

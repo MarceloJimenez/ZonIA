@@ -63,7 +63,28 @@ form.addEventListener("submit", async (event) => {
     input.focus();
   }
 });
-input.focus();
-chat.lastElementChild?.scrollIntoView({block: "end"});
+// A new chat (the candidate has not written yet): Sonia "types" each greeting message, one after the other.
+// A chat the candidate comes back to shows everything at once.
+const pause = (ms) => new Promise((done) => setTimeout(done, ms));
+
+async function typeGreeting() {
+  const greeting = [...chat.children];
+  if (greeting.some((msg) => msg.classList.contains("zn-msg--me"))) return;
+  const texts = greeting.map((msg) => msg.querySelector(".zn-msg__text").textContent);
+  chat.replaceChildren();
+  input.disabled = button.disabled = true;
+  for (const text of texts) {
+    const msg = add("Sonia", "Escribiendo…", false);
+    await pause(1500);
+    msg.querySelector(".zn-msg__text").textContent = text;
+    await pause(400);
+  }
+  input.disabled = button.disabled = false;
+}
+
+typeGreeting().then(() => {
+  input.focus();
+  chat.lastElementChild?.scrollIntoView({block: "end"});
+});
 </script>
 {% endblock %}

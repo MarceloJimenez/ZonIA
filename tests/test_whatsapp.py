@@ -1,20 +1,23 @@
-"""WhatsApp adapter: a Twilio webhook request becomes a turn, and the reply goes back through the sender.
+"""WhatsApp adapter: a Meta Cloud API webhook request becomes a turn, and the reply goes back through the sender.
 
-No network: a fake LLM and a fake sender. The signatures are made with Twilio's own validator.
+No network: a fake LLM and a fake sender. The signatures are made like Meta makes them.
 """
+
+import hashlib
+import hmac
+import json
 
 import pytest
 from fastapi.testclient import TestClient
-from twilio.request_validator import RequestValidator
 
 from test_turn import FakeLLM, make_agent
-from zonia.adapters.http import TEXT_ONLY_REPLY, WEBHOOK_PATH, create_app
+from zonia.adapters.http import TEXT_ONLY_REPLY, WEBHOOK_PATH, create_app, e164
 from zonia.config import GREETING
 from zonia.storage import Storage
 from zonia.turn import new_conversation
 
-TOKEN = "test-auth-token"
-PUBLIC_URL = "https://sonia.example.com"
+SECRET = "test-app-secret"
+VERIFY = "test-verify-token"
 PHONE = "+34600111222"
 
 
@@ -41,13 +44,24 @@ def applied(db) -> int:
 
 
 def client(db, fake: FakeLLM, sender: FakeSender) -> TestClient:
-    return TestClient(create_app(db, make_agent(fake), sender, TOKEN, PUBLIC_URL))
+    return TestClient(create_app(db, make_agent(fake), sender, SECRET, VERIFY))
 
 
-def post(test_client: TestClient, body: str = "Soy Ana López", sid: str = "SM1", signed: bool = True, **extra):
-    form = {"From": f"whatsapp:{PHONE}", "Body": body, "MessageSid": sid, "NumMedia": "0", **extra}
-    signature = RequestValidator(TOKEN).compute_signature(PUBLIC_URL + WEBHOOK_PATH, form) if signed else "wrong"
-    return test_client.post(WEBHOOK_PATH, data=form, headers={"X-Twilio-Signature": signature})
+def post(test_client: TestClient, body: str = "Soy Ana López", message_id: str = "wamid.1", signed: bool = True, message: dict | None = None):
+    """One webhook request, shaped like Meta's, with one message from PHONE."""
+    message = message or {"from": PHONE.removeprefix("+"), "id": message_id, "type": "text", "text": {"body": body}}
+    payload = {"object": "whatsapp_business_account", "entry": [{"changes": [{"field": "messages", "value": {"messages": [message]}}]}]}
+    raw = json.dumps(payload).encode()
+    signature = "sha256=" + hmac.new(SECRET.encode(), raw, hashlib.sha256).hexdigest() if signed else "sha256=wrong"
+    return test_client.post(WEBHOOK_PATH, content=raw, headers={"X-Hub-Signature-256": signature, "Content-Type": "application/json"})
+
+
+def test_meta_verifies_the_webhook_with_the_verify_token(db):
+    test_client = client(db, FakeLLM([]), FakeSender())
+    ok = test_client.get(WEBHOOK_PATH, params={"hub.mode": "subscribe", "hub.verify_token": VERIFY, "hub.challenge": "1234"})
+    assert (ok.status_code, ok.text) == (200, "1234")
+    wrong = test_client.get(WEBHOOK_PATH, params={"hub.mode": "subscribe", "hub.verify_token": "other", "hub.challenge": "1234"})
+    assert wrong.status_code == 403
 
 
 def test_a_message_runs_a_turn_and_the_reply_is_saved_and_sent(db, applied):
@@ -73,8 +87,8 @@ def test_the_same_message_sent_twice_runs_one_turn(db, applied):
     sender = FakeSender()
     fake = FakeLLM([{"fields": {"full_name": "Ana López"}}, {}])
     test_client = client(db, fake, sender)
-    post(test_client, sid="SM1")
-    post(test_client, sid="SM1")
+    post(test_client, message_id="wamid.1")
+    post(test_client, message_id="wamid.1")
     assert len(sender.sent) == 1
     assert len(fake.instructions) == 1
     assert Storage(db).load(applied).turns == 1
@@ -91,7 +105,8 @@ def test_a_phone_with_no_application_gets_no_reply(db):
 def test_a_message_with_only_a_file_gets_the_text_only_reply_and_no_turn(db, applied):
     sender = FakeSender()
     fake = FakeLLM([{}])
-    post(client(db, fake, sender), body="", NumMedia="1", MediaContentType0="audio/ogg")
+    audio = {"from": PHONE.removeprefix("+"), "id": "wamid.2", "type": "audio", "audio": {"mime_type": "audio/ogg"}}
+    post(client(db, fake, sender), message=audio)
     assert sender.sent == [(PHONE, TEXT_ONLY_REPLY["es"])]
     assert fake.instructions == []
     assert Storage(db).load(applied).turns == 0
@@ -105,3 +120,8 @@ def test_the_newest_conversation_of_the_phone_gets_the_message(db, applied):
     storage = Storage(db)
     assert storage.load(newer).turns == 1
     assert storage.load(applied).turns == 0
+
+
+def test_a_mexican_mobile_with_the_extra_1_matches_the_application_phone():
+    assert e164("5215512345678") == "+525512345678"
+    assert e164("34600111222") == "+34600111222"

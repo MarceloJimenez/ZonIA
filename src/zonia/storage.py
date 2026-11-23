@@ -5,7 +5,7 @@ country, stage, status, language, the fields and the LLM history (both as JSON).
 The messages table keeps what the candidate wrote and what Sonia replied, in order.
 waiting_since is the time of Sonia's last reply to the candidate: the follow-ups (zonia.followups) count from it.
 phone is the candidate's number on WhatsApp (E.164, for example "+34600111222"); empty for the terminal chat.
-A message's external_id is the channel's id for it (Twilio's MessageSid): a message that comes twice is saved once.
+A message's external_id is the channel's id for it (the WhatsApp message id): a message that comes twice is saved once.
 """
 
 import sqlite3
@@ -143,7 +143,7 @@ class Storage:
     ) -> None:
         """Save the conversation after one turn, and the turn's two messages.
 
-        external_id is the channel's id for the candidate's message (Twilio's MessageSid).
+        external_id is the channel's id for the candidate's message (the WhatsApp message id).
 
         One transaction: either everything is saved, or nothing is. Sonia has just replied,
         so waiting_since starts again.

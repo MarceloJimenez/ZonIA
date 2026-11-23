@@ -1,13 +1,16 @@
-"""Send WhatsApp messages through the Twilio API.
+"""Send WhatsApp messages through Meta's WhatsApp Cloud API.
 
-During development this is the Twilio sandbox: only phones that sent "join <code>" to the
-sandbox number get messages, and the first message needs no template approved by Meta.
+During development this is Meta's test number: it only sends to the (at most 5) phones added as
+recipients in the app's "API Setup" page. A free-text message only arrives within 24 hours of the
+candidate's last message; outside that window WhatsApp asks for a template approved by Meta.
 """
 
 import os
 from typing import Protocol
 
-from twilio.rest import Client
+import httpx
+
+GRAPH_URL = "https://graph.facebook.com/v25.0"
 
 
 class Sender(Protocol):
@@ -16,17 +19,21 @@ class Sender(Protocol):
     def send(self, phone: str, text: str) -> None: ...
 
 
-class TwilioSender:
-    """Sends through the Twilio API. phone is E.164, for example "+34600111222"."""
+class MetaSender:
+    """Sends through the Cloud API. phone is E.164, for example "+34600111222"."""
 
-    def __init__(self, account_sid: str, auth_token: str, from_number: str):
-        self.client = Client(account_sid, auth_token)
-        self.from_number = from_number
+    def __init__(self, access_token: str, phone_number_id: str):
+        self.url = f"{GRAPH_URL}/{phone_number_id}/messages"
+        self.headers = {"Authorization": f"Bearer {access_token}"}
 
     @classmethod
-    def from_env(cls) -> "TwilioSender":
-        """TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_WHATSAPP_FROM (the sandbox number) from .env."""
-        return cls(os.environ["TWILIO_ACCOUNT_SID"], os.environ["TWILIO_AUTH_TOKEN"], os.environ["TWILIO_WHATSAPP_FROM"])
+    def from_env(cls) -> "MetaSender":
+        """META_WHATSAPP_TOKEN and META_PHONE_NUMBER_ID (the test number's id) from .env."""
+        return cls(os.environ["META_WHATSAPP_TOKEN"], os.environ["META_PHONE_NUMBER_ID"])
 
     def send(self, phone: str, text: str) -> None:
-        self.client.messages.create(from_=f"whatsapp:{self.from_number}", to=f"whatsapp:{phone}", body=text)
+        body = {"messaging_product": "whatsapp", "to": phone.removeprefix("+"), "type": "text", "text": {"body": text}}
+        response = httpx.post(self.url, headers=self.headers, json=body, timeout=10)
+        if response.is_error:
+            # Meta's error text says why (for example: number not in the recipient list, 24-hour window closed).
+            raise RuntimeError(f"WhatsApp send failed: {response.status_code} {response.text}")

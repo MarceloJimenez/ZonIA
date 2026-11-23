@@ -41,6 +41,9 @@ logger = logging.getLogger(__name__)
 
 # Seconds for one voice turn. Past it, Sonia says the technical-failure reply instead of leaving silence.
 VOICE_TIME_LIMIT = 15
+# Seconds for one chat or WhatsApp turn. Past it, Sonia says the technical-failure reply
+# instead of leaving the candidate waiting. Longer than voice: a written reply can wait a little.
+CHAT_TIME_LIMIT = 30
 
 WEBHOOK_PATH = "/webhooks/whatsapp"
 HERE = Path(__file__).parent.parent
@@ -185,7 +188,7 @@ def create_app(
                 if conversation_id is None:
                     raise HTTPException(status_code=404)
                 conversation = storage.load(conversation_id)
-                turn = await run_turn_safely(agent, conversation, text)
+                turn = await run_turn_safely(agent, conversation, text, time_limit=CHAT_TIME_LIMIT)
                 storage.save_turn(conversation_id, conversation, turn)
             finally:
                 storage.close()
@@ -262,7 +265,7 @@ def create_app(
                     if has_media:
                         await send(phone, TEXT_ONLY_REPLY[conversation.language])
                     return
-                turn = await run_turn_safely(agent, conversation, text)
+                turn = await run_turn_safely(agent, conversation, text, time_limit=CHAT_TIME_LIMIT)
                 storage.save_turn(conversation_id, conversation, turn, external_id=message_id)
             finally:
                 storage.close()

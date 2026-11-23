@@ -3,14 +3,18 @@
 No network: a fake LLM. The WhatsApp sender is never called here.
 """
 
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 
 from test_turn import FakeLLM, make_agent
-from test_whatsapp import FakeSender
+from test_whatsapp import FakeSender, hanging_agent
+from zonia.adapters import http
 from zonia.adapters.http import DEMO_PHONE, DEMO_PHONES, PHONE_ERROR, country_for, create_app
 from zonia.config import GREETING, JOB_FACTS, zones_for
 from zonia.storage import Storage
+from zonia.turn import FAILURE_REPLY
 
 
 @pytest.fixture
@@ -18,8 +22,9 @@ def db(tmp_path):
     return tmp_path / "zonia.db"
 
 
-def client(db, fake: FakeLLM) -> TestClient:
-    return TestClient(create_app(db, make_agent(fake), FakeSender(), "secret", "verify"), follow_redirects=False)
+def client(db, fake: FakeLLM, agent=None) -> TestClient:
+    agent = agent or make_agent(fake)
+    return TestClient(create_app(db, agent, FakeSender(), "secret", "verify"), follow_redirects=False)
 
 
 def apply(test_client: TestClient, phone: str) -> str:
@@ -79,6 +84,18 @@ def test_a_chat_message_runs_a_turn_and_the_reply_is_returned_and_saved(db):
     conversation_id = storage.find_by_phone("+34600111222")
     assert storage.load(conversation_id).fields.full_name == "Ana López"
     assert storage.messages(conversation_id)[-2:] == [("candidate", "Soy Ana López"), ("agent", response.json()["reply"])]
+
+
+def test_an_llm_that_does_not_answer_in_time_gives_the_failure_reply(db, monkeypatch):
+    monkeypatch.setattr(http, "CHAT_TIME_LIMIT", 0.05)
+    test_client = client(db, FakeLLM([]), hanging_agent())
+    chat_url = apply(test_client, "+34600111222")
+    started = time.monotonic()
+    response = test_client.post(f"{chat_url}/messages", data={"text": "Soy Ana López"})
+    assert time.monotonic() - started < 2  # the LLM would hang for 10 s
+    assert response.json() == {"reply": FAILURE_REPLY["es"]}
+    storage = Storage(db)
+    assert storage.load(storage.find_by_phone("+34600111222")).fields.full_name is None
 
 
 def test_an_unknown_case_code_is_not_found(db):

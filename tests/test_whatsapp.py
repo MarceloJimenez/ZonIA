@@ -3,18 +3,25 @@
 No network: a fake LLM and a fake sender. The signatures are made like Meta makes them.
 """
 
+import asyncio
 import hashlib
 import hmac
 import json
+import time
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic_ai import Agent
+from pydantic_ai.models.function import FunctionModel
 
 from test_turn import FakeLLM, make_agent
+from zonia.adapters import http
 from zonia.adapters.http import TEXT_ONLY_REPLY, WEBHOOK_PATH, create_app, e164
 from zonia.config import GREETING
+from zonia.models import Turn
+from zonia.prompt import SYSTEM
 from zonia.storage import Storage
-from zonia.turn import new_conversation
+from zonia.turn import FAILURE_REPLY, new_conversation
 
 SECRET = "test-app-secret"
 VERIFY = "test-verify-token"
@@ -43,8 +50,16 @@ def applied(db) -> int:
     return conversation_id
 
 
-def client(db, fake: FakeLLM, sender: FakeSender) -> TestClient:
-    return TestClient(create_app(db, make_agent(fake), sender, SECRET, VERIFY))
+def hanging_agent() -> Agent:
+    """An agent whose LLM never answers in time, like Gemini when it hangs."""
+    async def hang(messages, info):
+        await asyncio.sleep(10)
+
+    return Agent(FunctionModel(hang), output_type=Turn, instructions=SYSTEM)
+
+
+def client(db, fake: FakeLLM, sender: FakeSender, agent: Agent | None = None) -> TestClient:
+    return TestClient(create_app(db, agent or make_agent(fake), sender, SECRET, VERIFY))
 
 
 def post(test_client: TestClient, body: str = "Soy Ana López", message_id: str = "wamid.1", signed: bool = True, message: dict | None = None):
@@ -73,6 +88,18 @@ def test_a_message_runs_a_turn_and_the_reply_is_saved_and_sent(db, applied):
     storage = Storage(db)
     assert storage.load(applied).fields.full_name == "Ana López"
     assert storage.messages(applied)[-2:] == [("candidate", "Soy Ana López"), ("agent", sender.sent[0][1])]
+
+
+def test_an_llm_that_does_not_answer_in_time_sends_the_failure_reply(db, applied, monkeypatch):
+    monkeypatch.setattr(http, "CHAT_TIME_LIMIT", 0.05)
+    sender = FakeSender()
+    started = time.monotonic()
+    response = post(client(db, FakeLLM([]), sender, hanging_agent()))
+    assert time.monotonic() - started < 2  # the LLM would hang for 10 s
+    assert response.status_code == 200
+    assert sender.sent == [(PHONE, FAILURE_REPLY["es"])]
+    storage = Storage(db)
+    assert storage.load(applied).fields.full_name is None
 
 
 def test_a_request_without_a_valid_signature_is_refused(db, applied):

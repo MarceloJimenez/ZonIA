@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block lang %}es{% endblock %}
+{% block title %}Trabaja con nosotros · Grupo Sazón{% endblock %}
+{% block content %}
+<div class="page-head">
+<div class="zn-eyebrow">Grupo Sazón · Empleo</div>
+<h1>Repartidor</h1>
+</div>
+<div class="zn-panel zn-apply">
+<div class="zn-panel__hd">Sobre el puesto</div>
+{% for fact in facts %}
+<div class="zn-panel__row">{{ fact }}</div>
+{% endfor %}
+<form class="zn-apply__form" method="post" action="/applications">
+<label for="phone">Tu número de teléfono, con el prefijo del país</label>
+<input id="phone" name="phone" type="tel" value="{{ phone }}" placeholder="+34 600 000 000" autocomplete="tel" required>
+{% if error %}<p class="zn-apply__error" role="alert">{{ error }}</p>{% endif %}
+<button class="zn-btn zn-btn--primary" type="submit">Postular</button>
+</form>
+</div>
+{% endblock %}

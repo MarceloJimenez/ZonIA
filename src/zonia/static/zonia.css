@@ -89,3 +89,19 @@ tbody tr:hover { background: var(--surface-tint); }
 .zn-cpanel__body { display: flex; flex-direction: column; gap: var(--space-3); padding: 16px; }
 .zn-cpanel__body .zn-pill { align-self: center; }
 .zn-cpanel__empty { margin: 0; font-size: 12.8px; color: var(--on-night-muted); }
+
+/* Apply page: the mock job page with the phone field */
+.zn-apply { max-width: 560px; }
+.zn-apply__form { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border-top: 1px solid var(--line); font-size: 14px; color: var(--ink); }
+.zn-apply__form input { font: 400 16px/1.4 var(--font-sans); padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--ink); }
+.zn-apply__form .zn-btn { align-self: flex-start; }
+.zn-apply__error { margin: 0; color: #9b2c1f; }
+
+/* Web chat: the candidate's chat with Sonia */
+.zn-webchat { max-width: 640px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; height: calc(100vh - 80px); }
+.zn-webchat__body { flex: 1; overflow-y: auto; }
+.zn-webchat .zn-msg__text { font-size: 15px; }
+.zn-webchat__form { display: flex; gap: var(--space-3); padding: 12px 16px; border-top: 1px solid var(--on-night-line); }
+.zn-webchat__form input { flex: 1; min-width: 0; font: 400 16px/1.4 var(--font-sans); padding: 12px 14px; border: 1px solid var(--on-night-line); border-radius: var(--radius-md); background: var(--on-night-fill); color: var(--on-night); }
+.zn-webchat__form input::placeholder { color: var(--on-night-muted); }
+.zn-webchat__form .zn-btn--primary { background: var(--lime); border-color: var(--lime); color: var(--night); }

@@ -4,7 +4,7 @@ One row per conversation keeps everything run_turn needs to continue it:
 country, stage, status, language, the fields and the LLM history (both as JSON).
 The messages table keeps what the candidate wrote and what Sonia replied, in order.
 waiting_since is the time of Sonia's last reply to the candidate: the follow-ups (zonia.followups) count from it.
-phone is the candidate's number on WhatsApp (E.164, for example "+34600111222"); empty for the terminal chat.
+phone is the candidate's number (E.164, for example "+34600111222"), from the apply page or WhatsApp; empty for the terminal chat.
 A message's external_id is the channel's id for it (the WhatsApp message id): a message that comes twice is saved once.
 """
 
@@ -89,7 +89,7 @@ class Storage:
         """Save a new conversation and return its id.
 
         agent_messages are Sonia's first messages (the greeting), saved before any turn.
-        phone is the candidate's WhatsApp number, when the conversation is on WhatsApp.
+        phone is the candidate's phone number, from the apply page (web chat) or WhatsApp.
         A conversation without a case code gets one here. The column is UNIQUE: if the
         code is already taken, a new code is made, before any candidate sees it.
         """
@@ -169,6 +169,11 @@ class Storage:
     def find_by_phone(self, phone: str) -> int | None:
         """The id of the newest conversation with this WhatsApp number, or None."""
         row = self.db.execute("SELECT id FROM conversations WHERE phone = ? ORDER BY id DESC LIMIT 1", (phone,)).fetchone()
+        return None if row is None else row["id"]
+
+    def find_by_case_code(self, case_code: str) -> int | None:
+        """The id of the conversation with this case code, or None. The web chat URL uses it."""
+        row = self.db.execute("SELECT id FROM conversations WHERE case_code = ?", (case_code,)).fetchone()
         return None if row is None else row["id"]
 
     def has_message(self, external_id: str) -> bool:

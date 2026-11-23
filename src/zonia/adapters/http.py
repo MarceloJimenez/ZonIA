@@ -1,7 +1,10 @@
-"""HTTP endpoints of Sonia's service. Today: the webhook of Meta's WhatsApp Cloud API.
+"""HTTP endpoints of Sonia's service: the web chat and the webhook of Meta's WhatsApp Cloud API.
 
-Design: docs/plans/System design.md, section 1. The adapter turns a WhatsApp webhook request into a turn,
-and the turn's reply into a WhatsApp message. The core (zonia.turn) does not know the channel.
+Design: docs/plans/System design.md, section 1. Each adapter turns a candidate message into a turn,
+and the turn's reply into a message on the same channel. The core (zonia.turn) does not know the channel.
+
+Web chat: the candidate writes a phone number on a mock job page (/apply), and Sonia chats in the
+browser at /chat/{case code}. The case code, not the row id, is in the URL: an id can be guessed.
 
 `zonia-server` starts it on http://127.0.0.1:8001. Meta needs a public address: ngrok gives one.
 In the Meta app, the webhook URL is that address + WEBHOOK_PATH, and the verify token is META_VERIFY_TOKEN.
@@ -12,20 +15,30 @@ import hashlib
 import hmac
 import logging
 import os
+import re
 from collections import defaultdict
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Response
+from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic_ai import Agent
 
 from zonia.adapters.whatsapp import MetaSender, Sender
+from zonia.config import GREETING, JOB_FACTS
 from zonia.models import Turn
 from zonia.storage import Storage
-from zonia.turn import run_turn_safely
+from zonia.turn import new_conversation, run_turn_safely
 
 logger = logging.getLogger(__name__)
 
 WEBHOOK_PATH = "/webhooks/whatsapp"
+HERE = Path(__file__).parent.parent
+
+# The countries Sonia serves: phone prefix -> (country, digits after the prefix).
+COUNTRY_PREFIXES = {"+34": ("ES", 9), "+52": ("MX", 10)}
+PHONE_ERROR = "Escribe tu número con el prefijo de España (+34) o de México (+52)."
 
 # A message with a photo, audio or other file and no text. Code writes the reply; no LLM call.
 # Other formats are in docs/Backlog.md.
@@ -48,10 +61,74 @@ def e164(wa_id: str) -> str:
     return "+" + wa_id
 
 
+def country_for(phone: str) -> tuple[str, str] | None:
+    """(country, E.164 phone) for a phone typed on the apply page, or None when the prefix or length is wrong."""
+    phone = re.sub(r"[\s().-]", "", phone)
+    for prefix, (country, digits) in COUNTRY_PREFIXES.items():
+        rest = phone.removeprefix(prefix)
+        if phone.startswith(prefix) and rest.isdigit() and len(rest) == digits:
+            return country, phone
+    return None
+
+
 def create_app(db_path: str | Path, agent: Agent[None, Turn], sender: Sender, app_secret: str, verify_token: str) -> FastAPI:
     app = FastAPI(title="ZonIA")
-    # One turn at a time per phone: two quick messages must not change the same conversation at once.
+    app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
+    templates = Jinja2Templates(directory=HERE / "templates")
+    # One turn at a time per conversation (key: phone or case code): two quick messages must not change it at once.
     locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+
+    @app.get("/apply", response_class=HTMLResponse)
+    async def apply(request: Request) -> HTMLResponse:
+        """The mock job page of Grupo Sazón: the job facts and one field, the phone number."""
+        return templates.TemplateResponse(request, "apply.html", {"facts": JOB_FACTS, "phone": "", "error": None})
+
+    @app.post("/applications")
+    async def applications(request: Request, phone: str = Form("")) -> Response:
+        """Opens a conversation with Sonia's greeting, then sends the candidate to the chat page."""
+        match = country_for(phone)
+        if match is None:
+            context = {"facts": JOB_FACTS, "phone": phone, "error": PHONE_ERROR}
+            return templates.TemplateResponse(request, "apply.html", context, status_code=422)
+        country, e164_phone = match
+        conversation = new_conversation(country)
+        storage = Storage(db_path)
+        try:
+            storage.create(conversation, GREETING, phone=e164_phone)
+        finally:
+            storage.close()
+        return RedirectResponse(f"/chat/{conversation.case_code}", status_code=303)
+
+    @app.get("/chat/{case_code}", response_class=HTMLResponse)
+    async def chat(request: Request, case_code: str) -> HTMLResponse:
+        storage = Storage(db_path)
+        try:
+            conversation_id = storage.find_by_case_code(case_code)
+            if conversation_id is None:
+                raise HTTPException(status_code=404)
+            messages = storage.messages(conversation_id)
+        finally:
+            storage.close()
+        return templates.TemplateResponse(request, "chat.html", {"case_code": case_code, "messages": messages})
+
+    @app.post("/chat/{case_code}/messages")
+    async def chat_message(case_code: str, text: str = Form("")) -> dict[str, str]:
+        """One candidate message: runs a turn and returns Sonia's reply. The page adds both to the chat."""
+        text = text.strip()
+        if not text:
+            raise HTTPException(status_code=422)
+        async with locks[case_code]:
+            storage = Storage(db_path)
+            try:
+                conversation_id = storage.find_by_case_code(case_code)
+                if conversation_id is None:
+                    raise HTTPException(status_code=404)
+                conversation = storage.load(conversation_id)
+                turn = await run_turn_safely(agent, conversation, text)
+                storage.save_turn(conversation_id, conversation, turn)
+            finally:
+                storage.close()
+        return {"reply": turn.reply}
 
     async def handle(phone: str, text: str, has_media: bool, message_id: str) -> None:
         async with locks[phone]:

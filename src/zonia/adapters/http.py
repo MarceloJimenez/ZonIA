@@ -79,6 +79,11 @@ def country_for(phone: str) -> tuple[str, str] | None:
     return None
 
 
+def log_turn(channel: str, who: str, text: str, reply: str, started: float) -> None:
+    """One line per turn, so the server log shows each conversation live."""
+    logger.info("%s %s | candidate: %s | sonia: %s | %.1f s", channel, who, text, reply, time.monotonic() - started)
+
+
 def voice_stream(reply: str):
     """The reply as the OpenAI streaming format that ElevenLabs reads: one chunk with the whole text, then [DONE]."""
     chunk = {"id": "sonia", "object": "chat.completion.chunk", "created": int(time.time()), "model": "sonia"}
@@ -145,6 +150,7 @@ def create_app(
         text = text.strip()
         if not text:
             raise HTTPException(status_code=422)
+        started = time.monotonic()
         async with locks[case_code]:
             storage = Storage(db_path)
             try:
@@ -156,6 +162,7 @@ def create_app(
                 storage.save_turn(conversation_id, conversation, turn)
             finally:
                 storage.close()
+        log_turn("web", case_code, text, turn.reply, started)
         return {"reply": turn.reply}
 
     @app.get("/voice/{case_code}", response_class=HTMLResponse)
@@ -186,9 +193,11 @@ def create_app(
         if not text:
             raise HTTPException(status_code=422)
         request_key = json.dumps(messages, sort_keys=True, ensure_ascii=False)
+        started = time.monotonic()
         async with locks[case_code]:
             last_key, last_reply = voice_replies.get(case_code, ("", ""))
             if request_key == last_key:
+                logger.info("voice %s | ElevenLabs sent the same turn again; reply reused | %.1f s", case_code, time.monotonic() - started)
                 return StreamingResponse(voice_stream(last_reply), media_type="text/event-stream")
             storage = Storage(db_path)
             try:
@@ -201,9 +210,11 @@ def create_app(
             finally:
                 storage.close()
             voice_replies[case_code] = (request_key, turn.reply)
+        log_turn("voice", case_code, text, turn.reply, started)
         return StreamingResponse(voice_stream(turn.reply), media_type="text/event-stream")
 
     async def handle(phone: str, text: str, has_media: bool, message_id: str) -> None:
+        started = time.monotonic()
         async with locks[phone]:
             storage = Storage(db_path)
             try:
@@ -222,6 +233,7 @@ def create_app(
                 storage.save_turn(conversation_id, conversation, turn, external_id=message_id)
             finally:
                 storage.close()
+        log_turn("whatsapp", phone, text, turn.reply, started)
         await send(phone, turn.reply)
 
     async def send(phone: str, text: str) -> None:
@@ -262,7 +274,7 @@ def main() -> None:
 
     from zonia.llm import build_agent, build_model  # loads .env
 
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", datefmt="%H:%M:%S")
     app = create_app(
         os.environ.get("ZONIA_DB", "zonia.db"),
         build_agent(build_model()),

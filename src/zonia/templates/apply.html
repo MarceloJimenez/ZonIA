@@ -15,7 +15,11 @@
 <label for="phone">Tu número de teléfono, con el prefijo del país</label>
 <input id="phone" name="phone" type="tel" value="{{ phone }}" placeholder="+34 600 000 000" autocomplete="tel" required>
 {% if error %}<p class="zn-apply__error" role="alert">{{ error }}</p>{% endif %}
-<button class="zn-btn zn-btn--primary" type="submit">Postular</button>
+<p class="zn-apply__hint">¿Cómo quieres hablar con nosotros?</p>
+<div class="zn-apply__channels">
+<button class="zn-btn zn-btn--primary" type="submit" name="channel" value="chat">Por chat</button>
+<button class="zn-btn zn-btn--primary" type="submit" name="channel" value="voice">Por voz</button>
+</div>
 </form>
 </div>
 {% endblock %}

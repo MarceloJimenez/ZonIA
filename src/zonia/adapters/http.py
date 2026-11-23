@@ -120,8 +120,8 @@ def create_app(
         return templates.TemplateResponse(request, "apply.html", {"facts": JOB_FACTS, "phone": DEMO_PHONE, "error": None})
 
     @app.post("/applications")
-    async def applications(request: Request, phone: str = Form("")) -> Response:
-        """Opens a conversation with Sonia's greeting, then sends the candidate to the chat page."""
+    async def applications(request: Request, phone: str = Form(""), channel: str = Form("chat")) -> Response:
+        """Opens a conversation with Sonia's greeting, then sends the candidate to the chosen channel: chat or voice."""
         match = country_for(phone)
         if match is None:
             context = {"facts": JOB_FACTS, "phone": phone, "error": PHONE_ERROR}
@@ -133,7 +133,8 @@ def create_app(
             storage.create(conversation, GREETING, phone=e164_phone)
         finally:
             storage.close()
-        return RedirectResponse(f"/chat/{conversation.case_code}", status_code=303)
+        page = "voice" if channel == "voice" else "chat"
+        return RedirectResponse(f"/{page}/{conversation.case_code}", status_code=303)
 
     @app.get("/chat/{case_code}", response_class=HTMLResponse)
     async def chat(request: Request, case_code: str) -> HTMLResponse:
@@ -170,7 +171,10 @@ def create_app(
 
     @app.get("/voice/{case_code}", response_class=HTMLResponse)
     async def voice(request: Request, case_code: str) -> HTMLResponse:
-        """Talks with Sonia by voice. She starts with her last message, so the candidate hears the open question."""
+        """Talks with Sonia by voice. She starts with her last message, so the candidate hears the open question.
+
+        In a new conversation she says the whole greeting: its first message introduces her.
+        """
         storage = Storage(db_path)
         try:
             conversation_id = storage.find_by_case_code(case_code)
@@ -179,7 +183,10 @@ def create_app(
             messages = storage.messages(conversation_id)
         finally:
             storage.close()
-        first_message = next(text for role, text in reversed(messages) if role == "agent")
+        if all(role == "agent" for role, _ in messages):
+            first_message = " ".join(text for _, text in messages)
+        else:
+            first_message = next(text for role, text in reversed(messages) if role == "agent")
         context = {"case_code": case_code, "messages": messages, "agent_id": elevenlabs_agent_id, "first_message": first_message}
         return templates.TemplateResponse(request, "voice.html", context)
 

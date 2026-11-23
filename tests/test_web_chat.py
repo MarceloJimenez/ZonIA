@@ -34,6 +34,7 @@ def test_the_apply_page_shows_the_job_facts_and_the_phone_field(db):
     assert page.status_code == 200
     assert all(fact in page.text for fact in JOB_FACTS)
     assert 'name="phone"' in page.text
+    assert 'name="channel" value="chat"' in page.text and 'name="channel" value="voice"' in page.text
     assert f'value="{DEMO_PHONE}"' in page.text
     assert country_for(DEMO_PHONE) == ("ES", "+34123456789")
 

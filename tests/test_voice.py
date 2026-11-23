@@ -105,17 +105,40 @@ def test_an_unknown_case_code_is_not_found(db):
     assert test_client.get("/voice/AAAA-BBBB").status_code == 404
 
 
-def test_the_voice_page_starts_with_sonias_last_message(db):
+def first_message(page) -> str:
+    """The first message Sonia says, from the page's JSON settings."""
+    return json.loads(page.text.split("const settings = ")[1].split(";\n")[0])["firstMessage"]
+
+
+def test_in_a_new_conversation_the_voice_page_starts_with_the_whole_greeting(db):
     test_client = client(db, FakeLLM([]))
     case_code = apply(test_client)
     page = test_client.get(f"/voice/{case_code}")
     assert page.status_code == 200
     assert "agent_test" in page.text
     assert case_code in page.text
-    assert json.dumps(GREETING[-1])[1:-1] in page.text  # the first message, inside the page's JSON settings
+    assert first_message(page) == " ".join(GREETING)
 
 
-def test_the_chat_page_links_to_voice(db):
+def test_after_the_candidate_answers_the_voice_page_starts_with_sonias_last_message(db):
+    fake = FakeLLM([{"fields": {"full_name": "Ana López"}, "reply": "Gracias, Ana. ¿Tienes carné de conducir?"}])
+    test_client = client(db, fake)
+    case_code = apply(test_client)
+    test_client.post(f"/chat/{case_code}/messages", data={"text": "Soy Ana López"})
+    assert first_message(test_client.get(f"/voice/{case_code}")) == "Gracias, Ana. ¿Tienes carné de conducir?"
+
+
+def test_applying_by_voice_opens_the_voice_page(db):
+    response = client(db, FakeLLM([])).post("/applications", data={"phone": "+34600111222", "channel": "voice"})
+    assert response.status_code == 303
+    assert response.headers["location"].startswith("/voice/")
+
+
+def test_the_chat_and_voice_pages_link_back_to_the_job_page_not_to_each_other(db):
     test_client = client(db, FakeLLM([]))
     case_code = apply(test_client)
-    assert f'href="/voice/{case_code}"' in test_client.get(f"/chat/{case_code}").text
+    chat_page = test_client.get(f"/chat/{case_code}").text
+    voice_page = test_client.get(f"/voice/{case_code}").text
+    assert 'href="/apply"' in chat_page and 'href="/apply"' in voice_page
+    assert f'href="/voice/{case_code}"' not in chat_page
+    assert f'href="/chat/{case_code}"' not in voice_page

@@ -5,7 +5,7 @@
 <div class="zn-cpanel zn-webchat">
 <div class="zn-cpanel__hd">
 <div class="zn-cpanel__title"><span class="zn-dot"></span>Sonia · Grupo Sazón · Voz</div>
-<a class="zn-webchat__link" href="/chat/{{ case_code }}">Volver al chat</a>
+<a class="zn-webchat__link" href="/apply">Volver al inicio</a>
 </div>
 <div class="zn-cpanel__body zn-webchat__body">
 <div class="zn-chat" id="chat">
@@ -22,6 +22,7 @@
 <p class="zn-webchat__status" id="status">Pulsa "Hablar" y permite el micrófono.</p>
 <button class="zn-btn zn-btn--primary" id="start" type="button">Hablar</button>
 <button class="zn-btn" id="stop" type="button" disabled>Colgar</button>
+<a class="zn-btn" id="home" href="/apply" hidden>Volver al inicio</a>
 </div>
 </div>
 <script type="module">
@@ -33,6 +34,7 @@ const chat = document.getElementById("chat");
 const status = document.getElementById("status");
 const start = document.getElementById("start");
 const stop = document.getElementById("stop");
+const home = document.getElementById("home");
 let conversation = null;
 let greeted = false;
 
@@ -56,10 +58,14 @@ function ended(text) {
   status.textContent = text;
   start.disabled = false;
   stop.disabled = true;
+  // After a call: call again (Sonia starts with her last message) or go back to the job page.
+  start.textContent = "Llamar de nuevo";
+  home.hidden = false;
 }
 
 start.addEventListener("click", async () => {
   start.disabled = true;
+  home.hidden = true;
   status.textContent = "Conectando…";
   greeted = false;
   try {
@@ -75,6 +81,7 @@ start.addEventListener("click", async () => {
       onMessage: ({source, message}) => {
         // The first message is Sonia's last message, already on the page.
         if (source === "ai" && !greeted) { greeted = true; return; }
+        if (source === "ai") settings.firstMessage = message;
         add(source === "user" ? "Tú" : "Sonia", message, source === "user");
       },
     });

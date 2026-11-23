@@ -108,3 +108,5 @@ tbody tr:hover { background: var(--surface-tint); }
 .zn-webchat__link { font-size: 12px; font-weight: 600; color: var(--lime); }
 .zn-webchat__status { flex: 1; align-self: center; margin: 0; font-size: 14px; color: var(--on-night-muted); }
 .zn-webchat__form .zn-btn:disabled { opacity: .5; cursor: default; }
+.zn-apply__hint { margin: 0; }
+.zn-apply__channels { display: flex; flex-wrap: wrap; gap: var(--space-3); }

@@ -105,3 +105,6 @@ tbody tr:hover { background: var(--surface-tint); }
 .zn-webchat__form input { flex: 1; min-width: 0; font: 400 16px/1.4 var(--font-sans); padding: 12px 14px; border: 1px solid var(--on-night-line); border-radius: var(--radius-md); background: var(--on-night-fill); color: var(--on-night); }
 .zn-webchat__form input::placeholder { color: var(--on-night-muted); }
 .zn-webchat__form .zn-btn--primary { background: var(--lime); border-color: var(--lime); color: var(--night); }
+.zn-webchat__link { font-size: 12px; font-weight: 600; color: var(--lime); }
+.zn-webchat__status { flex: 1; align-self: center; margin: 0; font-size: 14px; color: var(--on-night-muted); }
+.zn-webchat__form .zn-btn:disabled { opacity: .5; cursor: default; }

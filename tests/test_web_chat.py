@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from test_turn import FakeLLM, make_agent
 from test_whatsapp import FakeSender
-from zonia.adapters.http import PHONE_ERROR, country_for, create_app
+from zonia.adapters.http import DEMO_PHONE, PHONE_ERROR, country_for, create_app
 from zonia.config import GREETING, JOB_FACTS
 from zonia.storage import Storage
 
@@ -34,6 +34,8 @@ def test_the_apply_page_shows_the_job_facts_and_the_phone_field(db):
     assert page.status_code == 200
     assert all(fact in page.text for fact in JOB_FACTS)
     assert 'name="phone"' in page.text
+    assert f'value="{DEMO_PHONE}"' in page.text
+    assert country_for(DEMO_PHONE) == ("ES", "+34123456789")
 
 
 def test_a_spanish_phone_opens_a_spanish_conversation_with_the_greeting(db):

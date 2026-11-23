@@ -1,4 +1,4 @@
-"""HTTP endpoints of Sonia's service: the web chat and the webhook of Meta's WhatsApp Cloud API.
+"""HTTP endpoints of Sonia's service: the web chat, voice through ElevenLabs, and the webhook of Meta's WhatsApp Cloud API.
 
 Design: docs/plans/System design.md, section 1. Each adapter turns a candidate message into a turn,
 and the turn's reply into a message on the same channel. The core (zonia.turn) does not know the channel.
@@ -6,21 +6,27 @@ and the turn's reply into a message on the same channel. The core (zonia.turn) d
 Web chat: the candidate writes a phone number on a mock job page (/apply), and Sonia chats in the
 browser at /chat/{case code}. The case code, not the row id, is in the URL: an id can be guessed.
 
-`zonia-server` starts it on http://127.0.0.1:8001. Meta needs a public address: ngrok gives one.
+Voice: /voice/{case code} talks through an ElevenLabs agent. ElevenLabs turns speech into text and calls
+/voice/chat/completions as its "custom LLM" (OpenAI chat format); Sonia's reply goes back as speech.
+In the agent, the custom LLM URL is the public address + /voice, and the API key is ELEVENLABS_LLM_KEY.
+
+`zonia-server` starts it on http://127.0.0.1:8001. Meta and ElevenLabs need a public address: ngrok gives one.
 In the Meta app, the webhook URL is that address + WEBHOOK_PATH, and the verify token is META_VERIFY_TOKEN.
 """
 
 import asyncio
 import hashlib
 import hmac
+import json
 import logging
 import os
 import re
+import time
 from collections import defaultdict
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic_ai import Agent
@@ -39,6 +45,8 @@ HERE = Path(__file__).parent.parent
 # The countries Sonia serves: phone prefix -> (country, digits after the prefix).
 COUNTRY_PREFIXES = {"+34": ("ES", 9), "+52": ("MX", 10)}
 PHONE_ERROR = "Escribe tu número con el prefijo de España (+34) o de México (+52)."
+# The apply page starts with this number, so a demo needs no real phone. The candidate can change it.
+DEMO_PHONE = "+34 123 456 789"
 
 # A message with a photo, audio or other file and no text. Code writes the reply; no LLM call.
 # Other formats are in docs/Backlog.md.
@@ -71,17 +79,37 @@ def country_for(phone: str) -> tuple[str, str] | None:
     return None
 
 
-def create_app(db_path: str | Path, agent: Agent[None, Turn], sender: Sender, app_secret: str, verify_token: str) -> FastAPI:
+def voice_stream(reply: str):
+    """The reply as the OpenAI streaming format that ElevenLabs reads: one chunk with the whole text, then [DONE]."""
+    chunk = {"id": "sonia", "object": "chat.completion.chunk", "created": int(time.time()), "model": "sonia"}
+    text = {"index": 0, "delta": {"role": "assistant", "content": reply}, "finish_reason": None}
+    stop = {"index": 0, "delta": {}, "finish_reason": "stop"}
+    yield f"data: {json.dumps(chunk | {'choices': [text]}, ensure_ascii=False)}\n\n"
+    yield f"data: {json.dumps(chunk | {'choices': [stop]})}\n\n"
+    yield "data: [DONE]\n\n"
+
+
+def create_app(
+    db_path: str | Path,
+    agent: Agent[None, Turn],
+    sender: Sender,
+    app_secret: str,
+    verify_token: str,
+    elevenlabs_agent_id: str = "",
+    voice_key: str = "",
+) -> FastAPI:
     app = FastAPI(title="ZonIA")
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     templates = Jinja2Templates(directory=HERE / "templates")
     # One turn at a time per conversation (key: phone or case code): two quick messages must not change it at once.
     locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+    # Voice: case code -> (the last request's messages, its reply). ElevenLabs can send the same request twice.
+    voice_replies: dict[str, tuple[str, str]] = {}
 
     @app.get("/apply", response_class=HTMLResponse)
     async def apply(request: Request) -> HTMLResponse:
         """The mock job page of Grupo Sazón: the job facts and one field, the phone number."""
-        return templates.TemplateResponse(request, "apply.html", {"facts": JOB_FACTS, "phone": "", "error": None})
+        return templates.TemplateResponse(request, "apply.html", {"facts": JOB_FACTS, "phone": DEMO_PHONE, "error": None})
 
     @app.post("/applications")
     async def applications(request: Request, phone: str = Form("")) -> Response:
@@ -129,6 +157,51 @@ def create_app(db_path: str | Path, agent: Agent[None, Turn], sender: Sender, ap
             finally:
                 storage.close()
         return {"reply": turn.reply}
+
+    @app.get("/voice/{case_code}", response_class=HTMLResponse)
+    async def voice(request: Request, case_code: str) -> HTMLResponse:
+        """Talks with Sonia by voice. She starts with her last message, so the candidate hears the open question."""
+        storage = Storage(db_path)
+        try:
+            conversation_id = storage.find_by_case_code(case_code)
+            if conversation_id is None:
+                raise HTTPException(status_code=404)
+            messages = storage.messages(conversation_id)
+        finally:
+            storage.close()
+        first_message = next(text for role, text in reversed(messages) if role == "agent")
+        context = {"case_code": case_code, "messages": messages, "agent_id": elevenlabs_agent_id, "first_message": first_message}
+        return templates.TemplateResponse(request, "voice.html", context)
+
+    @app.post("/voice/chat/completions")
+    async def voice_turn(request: Request) -> StreamingResponse:
+        """ElevenLabs sends the whole history; only the candidate's last message is used. Our database has the rest."""
+        if not voice_key or not hmac.compare_digest(request.headers.get("authorization", ""), f"Bearer {voice_key}"):
+            raise HTTPException(status_code=401)
+        body = await request.json()
+        case_code = str((body.get("elevenlabs_extra_body") or {}).get("case_code", ""))
+        messages = [m for m in body.get("messages", []) if m.get("role") != "system"]  # the system message has the time
+        said = [m.get("content") for m in messages if m.get("role") == "user"]
+        text = said[-1].strip() if said and isinstance(said[-1], str) else ""
+        if not text:
+            raise HTTPException(status_code=422)
+        request_key = json.dumps(messages, sort_keys=True, ensure_ascii=False)
+        async with locks[case_code]:
+            last_key, last_reply = voice_replies.get(case_code, ("", ""))
+            if request_key == last_key:
+                return StreamingResponse(voice_stream(last_reply), media_type="text/event-stream")
+            storage = Storage(db_path)
+            try:
+                conversation_id = storage.find_by_case_code(case_code)
+                if conversation_id is None:
+                    raise HTTPException(status_code=404)
+                conversation = storage.load(conversation_id)
+                turn = await run_turn_safely(agent, conversation, text)
+                storage.save_turn(conversation_id, conversation, turn)
+            finally:
+                storage.close()
+            voice_replies[case_code] = (request_key, turn.reply)
+        return StreamingResponse(voice_stream(turn.reply), media_type="text/event-stream")
 
     async def handle(phone: str, text: str, has_media: bool, message_id: str) -> None:
         async with locks[phone]:
@@ -196,5 +269,7 @@ def main() -> None:
         MetaSender.from_env(),
         os.environ["META_APP_SECRET"],
         os.environ["META_VERIFY_TOKEN"],
+        os.environ.get("ELEVENLABS_AGENT_ID", ""),
+        os.environ.get("ELEVENLABS_LLM_KEY", ""),
     )
     uvicorn.run(app, host="127.0.0.1", port=8001)

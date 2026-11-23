@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block lang %}es{% endblock %}
+{% block title %}Sonia · Voz{% endblock %}
+{% block content %}
+<div class="zn-cpanel zn-webchat">
+<div class="zn-cpanel__hd">
+<div class="zn-cpanel__title"><span class="zn-dot"></span>Sonia · Grupo Sazón · Voz</div>
+<a class="zn-webchat__link" href="/chat/{{ case_code }}">Volver al chat</a>
+</div>
+<div class="zn-cpanel__body zn-webchat__body">
+<div class="zn-chat" id="chat">
+{% for role, text in messages %}
+{% if role == "agent" %}
+<div class="zn-msg"><div class="zn-msg__who">Sonia</div><p class="zn-msg__text">{{ text }}</p></div>
+{% else %}
+<div class="zn-msg zn-msg--me"><div class="zn-msg__who">Tú</div><p class="zn-msg__text">{{ text }}</p></div>
+{% endif %}
+{% endfor %}
+</div>
+</div>
+<div class="zn-webchat__form">
+<p class="zn-webchat__status" id="status">Pulsa "Hablar" y permite el micrófono.</p>
+<button class="zn-btn zn-btn--primary" id="start" type="button">Hablar</button>
+<button class="zn-btn" id="stop" type="button" disabled>Colgar</button>
+</div>
+</div>
+<script type="module">
+// ElevenLabs turns speech into text and calls /voice/chat/completions; the case code goes as extra body.
+import { Conversation } from "https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.35.0/+esm";
+
+const settings = {{ {"agentId": agent_id, "caseCode": case_code, "firstMessage": first_message} | tojson }};
+const chat = document.getElementById("chat");
+const status = document.getElementById("status");
+const start = document.getElementById("start");
+const stop = document.getElementById("stop");
+let conversation = null;
+let greeted = false;
+
+// Adds each message with textContent, never as HTML.
+function add(who, text, mine) {
+  const msg = document.createElement("div");
+  msg.className = mine ? "zn-msg zn-msg--me" : "zn-msg";
+  const name = document.createElement("div");
+  name.className = "zn-msg__who";
+  name.textContent = who;
+  const body = document.createElement("p");
+  body.className = "zn-msg__text";
+  body.textContent = text;
+  msg.append(name, body);
+  chat.append(msg);
+  msg.scrollIntoView({block: "end"});
+}
+
+function ended(text) {
+  conversation = null;
+  status.textContent = text;
+  start.disabled = false;
+  stop.disabled = true;
+}
+
+start.addEventListener("click", async () => {
+  start.disabled = true;
+  status.textContent = "Conectando…";
+  greeted = false;
+  try {
+    conversation = await Conversation.startSession({
+      agentId: settings.agentId,
+      connectionType: "websocket",
+      customLlmExtraBody: {case_code: settings.caseCode},
+      overrides: {agent: {firstMessage: settings.firstMessage}},
+      onConnect: () => { status.textContent = "Habla cuando quieras."; stop.disabled = false; },
+      onDisconnect: () => ended("Llamada terminada."),
+      onError: () => ended("No pude conectar la llamada. Inténtalo de nuevo."),
+      onModeChange: ({mode}) => { status.textContent = mode === "speaking" ? "Sonia está hablando…" : "Te escucho…"; },
+      onMessage: ({source, message}) => {
+        // The first message is Sonia's last message, already on the page.
+        if (source === "ai" && !greeted) { greeted = true; return; }
+        add(source === "user" ? "Tú" : "Sonia", message, source === "user");
+      },
+    });
+  } catch (error) {
+    ended("No pude usar el micrófono. Revisa el permiso del navegador.");
+  }
+});
+
+stop.addEventListener("click", async () => {
+  await conversation?.endSession();
+  ended("Llamada terminada.");
+});
+
+chat.lastElementChild?.scrollIntoView({block: "end"});
+</script>
+{% endblock %}

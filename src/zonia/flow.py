@@ -59,7 +59,7 @@ def decide(stage: Stage, status: Status, intent: Intent, fields: ScreeningFields
     reopened = status in FINAL_STATUSES and reopens(status, intent, fields)
     if status in FINAL_STATUSES and not reopened:
         return stage, status
-    if status == Status.PAUSED or reopened:
+    if status in {Status.PAUSED, Status.TECHNICAL_ERROR} or reopened:
         status = Status.ACTIVE
     if is_disqualified(fields):
         return stage, Status.DISQUALIFIED

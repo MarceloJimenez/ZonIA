@@ -207,7 +207,8 @@ async def run_turn_safely(
     A transient error is tried again, up to len(RETRY_DELAYS) times. If the turn still fails,
     the candidate gets a fixed reply and the conversation keeps its state.
     The first failure asks the candidate to repeat; from the second failure in a row on,
-    the reply gives the contact email, so the candidate is not lost.
+    the reply gives the contact email, so the candidate is not lost, and an open conversation
+    becomes technical_error, so the recruiter sees it. A good turn later makes it active again (flow.decide).
 
     time_limit (seconds) bounds the whole turn, tries and waits included. When it passes,
     the turn fails the same way. Voice uses it: the candidate waits in silence.
@@ -248,6 +249,8 @@ async def run_turn_safely(
         reply = FAILURE_REPLY[c.language]
     else:
         reply = CONTACT_REPLY[c.language].format(email=contact_email_for(c.country))
+        if c.status not in FINAL_STATUSES:
+            c.status = Status.TECHNICAL_ERROR
     return TurnResult(
         message=text, reply=reply, intent=Intent.NONE, stage=c.stage, status=c.status, language=c.language,
         llm_calls=0, reply_source="fallback",

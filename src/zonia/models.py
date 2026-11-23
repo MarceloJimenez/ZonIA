@@ -25,6 +25,7 @@ class Status(StrEnum):
     DISQUALIFIED = "disqualified"
     WITHDRAWN = "withdrawn"
     INCOMPLETE = "incomplete"
+    TECHNICAL_ERROR = "technical_error"  # 2 failed turns in a row; not final: a good turn goes back to active
 
 
 class Intent(StrEnum):

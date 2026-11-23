@@ -65,13 +65,19 @@ def field_rows(fields: ScreeningFields) -> list[tuple[str, str]]:
     ]
 
 
+def status_label(status: Status) -> str:
+    """"technical_error" -> "Technical error"."""
+    return status.value.replace("_", " ").capitalize()
+
+
 def list_row(c: ConversationRow) -> dict:
     return {
         "id": c.id,
         "name": c.fields.full_name or f"Conversation {c.id}",
         "country": c.country,
-        "status": c.status.value.capitalize(),
+        "status": status_label(c.status),
         "qualified": c.status == Status.QUALIFIED,
+        "technical_error": c.status == Status.TECHNICAL_ERROR,  # the recruiter contacts the candidate again
         "stage": STAGE_LABELS[c.stage],
         "zone": zone(c.fields),
         "started": when(c.created_at),
@@ -98,7 +104,7 @@ def create_app(db_path: str | Path) -> FastAPI:
             storage.close()
         shown = [c for c in every if status is None or c.status == status]
         shown.sort(key=lambda c: c.status != Status.QUALIFIED)  # qualified first; sort is stable, so newest next
-        filters = [("All", None), *((s.value.capitalize(), s) for s in Status)]
+        filters = [("All", None), *((status_label(s), s) for s in Status)]
         return templates.TemplateResponse(
             request,
             "list.html",

@@ -30,7 +30,7 @@
 <tr>
 <td class="name"><a href="/conversations/{{ r.id }}">{{ r.name }}</a></td>
 <td><span class="zn-tag zn-tag--code">{{ r.country }}</span></td>
-<td><span class="zn-tag{{ ' zn-tag--ok' if r.qualified }}">{{ r.status }}</span></td>
+<td><span class="zn-tag{{ ' zn-tag--ok' if r.qualified }}{{ ' zn-tag--alert' if r.technical_error }}">{{ r.status }}</span></td>
 <td class="soft">{{ r.stage }}</td>
 <td>{{ r.zone }}</td>
 <td class="soft">{{ r.started }}</td>

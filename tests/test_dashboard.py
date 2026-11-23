@@ -99,3 +99,15 @@ def test_an_unknown_id_gives_404(client):
 def test_the_licence_row_shows_the_type_when_the_candidate_gave_it():
     rows = dict(field_rows(ScreeningFields(driver_license=True, license_type="profesional")))
     assert rows["Driver's licence"] == "Yes (profesional)"
+
+
+def test_a_technical_error_is_labelled_and_highlighted(tmp_path):
+    path = tmp_path / "zonia.db"
+    storage = Storage(path)
+    storage.create(Conversation(fields=ScreeningFields(full_name="Rosa Díaz"), status=Status.TECHNICAL_ERROR))
+    storage.close()
+    client = TestClient(create_app(path))
+    response = client.get("/?status=technical_error")
+    assert "Rosa Díaz" in response.text
+    assert "zn-tag--alert" in response.text
+    assert "Technical error" in response.text

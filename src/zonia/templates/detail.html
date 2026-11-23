@@ -6,7 +6,7 @@
 <div class="page-head">
 <h1>{{ row.name }}</h1>
 <div class="row-wrap">
-<span class="zn-tag{{ ' zn-tag--ok' if row.qualified }}">{{ row.status }}</span>
+<span class="zn-tag{{ ' zn-tag--ok' if row.qualified }}{{ ' zn-tag--alert' if row.technical_error }}">{{ row.status }}</span>
 <span class="zn-tag zn-tag--code">{{ row.country }}</span>
 <span class="zn-tag">{{ row.stage }}</span>
 <span class="zn-tag zn-tag--code">Case {{ row.case_code }}</span>

@@ -70,6 +70,16 @@ def test_each_step_happens_at_its_time_and_only_once(storage, clock):
     assert steps(storage, clock, hours=48) == []  # incomplete is final: no more steps
 
 
+def test_a_conversation_with_a_technical_error_gets_no_follow_ups(storage, clock):
+    conversation_id = started(storage)
+    conversation = storage.load(conversation_id)
+    conversation.status = Status.TECHNICAL_ERROR
+    storage.save_followup(conversation_id, conversation, None)
+    assert steps(storage, clock, minutes=10) == []
+    assert steps(storage, clock, hours=24) == []
+    assert storage.load(conversation_id).status == Status.TECHNICAL_ERROR
+
+
 def test_a_reminder_names_what_is_missing_and_is_saved_and_kept_in_the_history(storage, clock):
     conversation_id = started(storage)
     [followup] = run_followups(storage, clock.at(minutes=10))

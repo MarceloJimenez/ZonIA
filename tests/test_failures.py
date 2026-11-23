@@ -99,7 +99,24 @@ def test_the_second_failure_in_a_row_gives_the_contact_email_of_the_country():
     assert first.reply == FAILURE_REPLY["es"]
     assert contact_email_for("MX") in second.reply
     assert conversation.failed_turns == 2
-    assert second.status == Status.ACTIVE
+    assert first.status == Status.ACTIVE
+    assert second.status == Status.TECHNICAL_ERROR
+
+
+def test_a_good_turn_after_a_technical_error_makes_the_conversation_active_again():
+    conversation = Conversation()
+    run(FailingLLM([http(400)]), conversation)
+    run(FailingLLM([http(400)]), conversation)
+    turn, _ = run(FailingLLM([], [{}]), conversation)
+    assert turn.status == Status.ACTIVE
+    assert conversation.status == Status.ACTIVE
+
+
+def test_two_failures_keep_a_final_status():
+    conversation = Conversation(status=Status.QUALIFIED)
+    run(FailingLLM([http(400)]), conversation)
+    second, _ = run(FailingLLM([http(400)]), conversation)
+    assert second.status == Status.QUALIFIED
 
 
 def test_a_turn_that_succeeds_resets_the_failures():

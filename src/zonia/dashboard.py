@@ -49,10 +49,13 @@ def field_rows(fields: ScreeningFields) -> list[tuple[str, str]]:
     def show(value, render=str) -> str:
         return EMPTY if value is None else render(value)
 
+    licence = show(fields.driver_license, lambda v: "Yes" if v else "No")
+    if fields.driver_license and fields.license_type:
+        licence += f" ({fields.license_type})"
     experience = show(fields.experience_years, lambda y: f"{y:g} {'year' if y == 1 else 'years'}")
     return [
         ("Full name", show(fields.full_name)),
-        ("Driver's licence", show(fields.driver_license, lambda v: "Yes" if v else "No")),
+        ("Driver's licence", licence),
         ("City or zone", zone(fields)),
         ("Availability", show(fields.availability, lambda v: ", ".join(AVAILABILITY_EN[a] for a in v))),
         ("Schedule", show(fields.schedule, lambda v: ", ".join(SCHEDULE_EN[s] for s in v))),

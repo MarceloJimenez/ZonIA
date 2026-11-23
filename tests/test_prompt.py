@@ -35,7 +35,7 @@ def test_missing_fields_are_listed_in_order():
     # With some experience, the platform comes right after it, before the start date.
     missing = _missing_section(turn_instructions(ScreeningFields(full_name="Ana", experience_years=3), TODAY))
     assert missing.splitlines() == [
-        "1. si tiene carné de conducir vigente",
+        "1. si tiene carné de conducir vigente (en la misma pregunta, dile que si quiere puede decir para qué vehículo)",
         "2. ciudad y barrio donde vive",
         "3. disponibilidad (tiempo completo, medio tiempo o fines de semana)",
         "4. horario preferido (mañana, tarde, noche o flexible)",

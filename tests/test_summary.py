@@ -83,3 +83,12 @@ def test_summary_asks_for_confirmation():
 def test_the_licence_uses_the_word_of_the_country():
     assert "- Licencia de manejo: Sí" in render_summary(ANA, country="MX").splitlines()
     assert "- Carné de conducir: Sí" in render_summary(ANA, country="ES").splitlines()
+
+
+def test_the_licence_type_goes_next_to_yes_when_the_candidate_gave_it():
+    lines = render_summary(ANA.model_copy(update={"license_type": "moto y coche"})).splitlines()
+    assert "- Carné de conducir: Sí (moto y coche)" in lines
+
+
+def test_the_licence_type_is_optional():
+    assert "- Carné de conducir: Sí" in render_summary(ANA).splitlines()

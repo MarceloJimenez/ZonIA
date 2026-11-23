@@ -41,6 +41,14 @@ class ScreeningFields(BaseModel):
 
     driver_license: Optional[bool] = None
 
+    license_type: Optional[str] = Field(
+        None,
+        description=(
+            "Para qué vehículos es el carné, con las palabras del candidato (por ejemplo \"moto\", \"coche\" "
+            "o \"profesional\"). Opcional: rellénalo solo si el candidato lo dice. Nunca lo preguntes aparte."
+        ),
+    )
+
     city_zone: Optional[str] = Field(
         None,
         description=(

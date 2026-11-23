@@ -134,7 +134,10 @@ def render_summary(fields: ScreeningFields, language: str = "es", country: str =
         lines.append(f"- {t['name']}: {fields.full_name}")
     if fields.driver_license is not None:
         license_label = t["license"].format(license=local_words_for(country)["license"].capitalize())
-        lines.append(f"- {license_label}: {t['yes'] if fields.driver_license else t['no']}")
+        answer = t["yes"] if fields.driver_license else t["no"]
+        if fields.driver_license and fields.license_type:
+            answer += f" ({fields.license_type})"
+        lines.append(f"- {license_label}: {answer}")
     if fields.city_zone is not None:
         lines.append(f"- {t['zone']}: {fields.city_zone}")
     if fields.availability:

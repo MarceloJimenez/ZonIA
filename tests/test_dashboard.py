@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from test_turn import COMPLETE
-from zonia.dashboard import create_app
+from zonia.dashboard import create_app, field_rows
 from zonia.models import ScreeningFields, Stage, Status
 from zonia.storage import Storage
 from zonia.turn import Conversation, TurnResult
@@ -94,3 +94,8 @@ def test_the_detail_shows_the_case_code(client):
 
 def test_an_unknown_id_gives_404(client):
     assert client.get("/conversations/999").status_code == 404
+
+
+def test_the_licence_row_shows_the_type_when_the_candidate_gave_it():
+    rows = dict(field_rows(ScreeningFields(driver_license=True, license_type="profesional")))
+    assert rows["Driver's licence"] == "Yes (profesional)"

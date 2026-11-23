@@ -69,6 +69,12 @@ FIELD_LABELS_ES = {
 }
 
 
+# Added to an open field in the "Falta" list: how to ask it.
+ASK_HINTS_ES = {
+    "driver_license": " (en la misma pregunta, dile que si quiere puede decir para qué vehículo)",
+}
+
+
 def field_label(name: str, country: str) -> str:
     """How the prompt names a field, with the country's words."""
     return FIELD_LABELS_ES[name].format(**local_words_for(country))
@@ -166,7 +172,10 @@ def turn_instructions(
         for name in FIELD_ORDER
         if getattr(fields, name) is not None
     ]
-    missing = [f"{i}. {field_label(name, country)}" for i, name in enumerate(open_fields(fields), start=1)]
+    missing = [
+        f"{i}. {field_label(name, country)}{ASK_HINTS_ES.get(name, '')}"
+        for i, name in enumerate(open_fields(fields), start=1)
+    ]
     parts = [_today_es(today), language_section(language), local_words(country)]
     if known:
         parts.append("Ya sabes:\n" + "\n".join(known))

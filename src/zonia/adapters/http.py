@@ -32,7 +32,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic_ai import Agent
 
 from zonia.adapters.whatsapp import MetaSender, Sender
-from zonia.config import GREETING, JOB_FACTS
+from zonia.config import GREETING, JOB_FACTS, zones_for
 from zonia.models import Turn
 from zonia.storage import Storage
 from zonia.turn import new_conversation, run_turn_safely
@@ -48,8 +48,11 @@ HERE = Path(__file__).parent.parent
 # The countries Sonia serves: phone prefix -> (country, digits after the prefix).
 COUNTRY_PREFIXES = {"+34": ("ES", 9), "+52": ("MX", 10)}
 PHONE_ERROR = "Escribe tu número con el prefijo de España (+34) o de México (+52)."
-# The apply page starts with this number, so a demo needs no real phone. The candidate can change it.
-DEMO_PHONE = "+34 123 456 789"
+COUNTRY_PHONE_ERROR = "Ese número no es de {name}. Escribe un número que empiece por {prefix}."
+COUNTRY_NAMES = {"ES": "España", "MX": "México"}
+# The apply page starts with these numbers, so a demo needs no real phone. The candidate can change them.
+DEMO_PHONES = {"ES": "+34 123 456 789", "MX": "+52 55 1234 5678"}
+DEMO_PHONE = DEMO_PHONES["ES"]
 
 # A message with a photo, audio or other file and no text. Code writes the reply; no LLM call.
 # Other formats are in docs/Backlog.md.
@@ -87,6 +90,15 @@ def log_turn(channel: str, who: str, text: str, reply: str, started: float) -> N
     logger.info("%s %s | candidate: %s | sonia: %s | %.1f s", channel, who, text, reply, time.monotonic() - started)
 
 
+def apply_context(phone: str, country: str, error: str | None) -> dict:
+    """What the apply page shows: the job facts, the countries with their service zones, and the phone field."""
+    countries = [
+        {"code": code, "name": name, "zones": zones_for(code), "demo_phone": DEMO_PHONES[code]}
+        for code, name in COUNTRY_NAMES.items()
+    ]
+    return {"facts": JOB_FACTS, "countries": countries, "country": country, "phone": phone, "error": error}
+
+
 def voice_stream(reply: str):
     """The reply as the OpenAI streaming format that ElevenLabs reads: one chunk with the whole text, then [DONE]."""
     chunk = {"id": "sonia", "object": "chat.completion.chunk", "created": int(time.time()), "model": "sonia"}
@@ -117,14 +129,25 @@ def create_app(
     @app.get("/apply", response_class=HTMLResponse)
     async def apply(request: Request) -> HTMLResponse:
         """The mock job page of Grupo Sazón: the job facts and one field, the phone number."""
-        return templates.TemplateResponse(request, "apply.html", {"facts": JOB_FACTS, "phone": DEMO_PHONE, "error": None})
+        return templates.TemplateResponse(request, "apply.html", apply_context(DEMO_PHONE, "ES", None))
 
     @app.post("/applications")
-    async def applications(request: Request, phone: str = Form(""), channel: str = Form("chat")) -> Response:
-        """Opens a conversation with Sonia's greeting, then sends the candidate to the chosen channel: chat or voice."""
+    async def applications(
+        request: Request, phone: str = Form(""), channel: str = Form("chat"), country: str = Form("")
+    ) -> Response:
+        """Opens a conversation with Sonia's greeting, then sends the candidate to the chosen channel: chat or voice.
+
+        The candidate chooses the country; the phone must have its prefix. With no country, the prefix decides it.
+        """
         match = country_for(phone)
+        error = None
         if match is None:
-            context = {"facts": JOB_FACTS, "phone": phone, "error": PHONE_ERROR}
+            error = PHONE_ERROR
+        elif country in COUNTRY_NAMES and match[0] != country:
+            prefix = next(p for p, (c, _) in COUNTRY_PREFIXES.items() if c == country)
+            error = COUNTRY_PHONE_ERROR.format(name=COUNTRY_NAMES[country], prefix=prefix)
+        if error:
+            context = apply_context(phone, country if country in COUNTRY_NAMES else "ES", error)
             return templates.TemplateResponse(request, "apply.html", context, status_code=422)
         country, e164_phone = match
         conversation = new_conversation(country)

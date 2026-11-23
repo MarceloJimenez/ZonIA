@@ -12,6 +12,15 @@
 <div class="zn-panel__row">{{ fact }}</div>
 {% endfor %}
 <form class="zn-apply__form" method="post" action="/applications">
+<fieldset class="zn-apply__countries">
+<legend>¿Dónde quieres trabajar?</legend>
+{% for c in countries %}
+<label class="zn-apply__country">
+<input type="radio" name="country" value="{{ c.code }}" data-phone="{{ c.demo_phone }}"{% if c.code == country %} checked{% endif %} required>
+<span><strong>{{ c.name }}</strong><small>Zonas: {{ c.zones | join(", ") }}</small></span>
+</label>
+{% endfor %}
+</fieldset>
 <label for="phone">Tu número de teléfono, con el prefijo del país</label>
 <input id="phone" name="phone" type="tel" value="{{ phone }}" placeholder="+34 600 000 000" autocomplete="tel" required>
 {% if error %}<p class="zn-apply__error" role="alert">{{ error }}</p>{% endif %}
@@ -22,4 +31,14 @@
 </div>
 </form>
 </div>
+<script>
+// A demo number changes with the country, so it keeps the right prefix. A number the candidate typed stays.
+const phone = document.getElementById("phone");
+const radios = document.querySelectorAll('input[name="country"]');
+const demoPhones = [...radios].map(radio => radio.dataset.phone);
+radios.forEach(radio => radio.addEventListener("change", () => {
+  if (demoPhones.includes(phone.value)) phone.value = radio.dataset.phone;
+  phone.placeholder = radio.dataset.phone;
+}));
+</script>
 {% endblock %}

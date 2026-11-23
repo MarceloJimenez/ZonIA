@@ -8,8 +8,8 @@ from fastapi.testclient import TestClient
 
 from test_turn import FakeLLM, make_agent
 from test_whatsapp import FakeSender
-from zonia.adapters.http import DEMO_PHONE, PHONE_ERROR, country_for, create_app
-from zonia.config import GREETING, JOB_FACTS
+from zonia.adapters.http import DEMO_PHONE, DEMO_PHONES, PHONE_ERROR, country_for, create_app
+from zonia.config import GREETING, JOB_FACTS, zones_for
 from zonia.storage import Storage
 
 
@@ -99,3 +99,24 @@ def test_a_phone_needs_the_right_number_of_digits_for_its_country():
     assert country_for("+34 600-111-222") == ("ES", "+34600111222")
     assert country_for("+34 60011122") is None
     assert country_for("600111222") is None
+
+
+def test_the_apply_page_shows_both_countries_with_their_service_zones(db):
+    page = client(db, FakeLLM([])).get("/apply").text
+    assert 'name="country" value="ES"' in page and 'name="country" value="MX"' in page
+    assert all(zone in page for zone in zones_for("ES") + zones_for("MX"))
+    assert country_for(DEMO_PHONES["MX"]) == ("MX", "+525512345678")
+
+
+def test_the_chosen_country_opens_a_conversation_in_that_country(db):
+    response = client(db, FakeLLM([])).post("/applications", data={"phone": "+52 55 1234 5678", "country": "MX"})
+    assert response.status_code == 303
+    storage = Storage(db)
+    assert storage.load(storage.find_by_phone("+525512345678")).country == "MX"
+
+
+def test_a_phone_from_another_country_than_the_chosen_one_shows_the_error_and_opens_no_conversation(db):
+    response = client(db, FakeLLM([])).post("/applications", data={"phone": "+34 600 111 222", "country": "MX"})
+    assert response.status_code == 422
+    assert "Ese número no es de México" in response.text and "+52" in response.text
+    assert Storage(db).conversations() == []

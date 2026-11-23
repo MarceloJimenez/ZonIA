@@ -100,4 +100,5 @@ Meta delivers messages only after the business is verified. Until then, the web 
 
 ## Deliverables
 
+- [Process design document](https://claude.ai/artifact/HbgPjrbaGQnAesS8GQ1rss): stages, fields and validation, outcomes, edge cases, personality, and message tone.
 - [Sample conversations](deliverables/sample-conversations/README.md): 7 conversations played against the real LLM.

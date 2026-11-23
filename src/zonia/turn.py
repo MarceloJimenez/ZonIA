@@ -196,6 +196,7 @@ async def run_turn_safely(
     text: str,
     today: date | None = None,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    time_limit: float | None = None,
 ) -> TurnResult:
     """run_turn that never raises, and stops at the turn limit.
 
@@ -207,6 +208,9 @@ async def run_turn_safely(
     the candidate gets a fixed reply and the conversation keeps its state.
     The first failure asks the candidate to repeat; from the second failure in a row on,
     the reply gives the contact email, so the candidate is not lost.
+
+    time_limit (seconds) bounds the whole turn, tries and waits included. When it passes,
+    the turn fails the same way. Voice uses it: the candidate waits in silence.
     """
     c = conversation
     c.turns += 1
@@ -219,15 +223,25 @@ async def run_turn_safely(
             intent=Intent.NONE, stage=c.stage, status=c.status, language=c.language, llm_calls=0, reply_source="limit",
         )
 
+    loop = asyncio.get_running_loop()
+    deadline = None if time_limit is None else loop.time() + time_limit
     for attempt in range(len(RETRY_DELAYS) + 1):
         try:
-            return await run_turn(agent, conversation, text, today)
+            # run_turn changes the conversation only at its end, so stopping it in the middle changes nothing.
+            remaining = None if deadline is None else deadline - loop.time()
+            return await asyncio.wait_for(run_turn(agent, conversation, text, today), remaining)
+        except TimeoutError:
+            logger.error("Turn passed the time limit of %s s after %d tries", time_limit, attempt + 1)
+            break
         except Exception as error:
             if not is_transient(error) or attempt == len(RETRY_DELAYS):
                 logger.exception("Turn failed after %d tries", attempt + 1)
                 break
-            wait = getattr(error, "retry_after", None) or RETRY_DELAYS[attempt]
-            await sleep(min(wait, MAX_RETRY_WAIT))
+            wait = min(getattr(error, "retry_after", None) or RETRY_DELAYS[attempt], MAX_RETRY_WAIT)
+            if deadline is not None and loop.time() + wait >= deadline:
+                logger.exception("Turn failed after %d tries: the next wait passes the time limit", attempt + 1)
+                break
+            await sleep(wait)
 
     c.failed_turns += 1
     if c.failed_turns == 1:

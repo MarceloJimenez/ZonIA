@@ -2,11 +2,14 @@
 
 import asyncio
 
+from pydantic_ai import Agent
 from pydantic_ai.exceptions import ModelAPIError, ModelHTTPError
+from pydantic_ai.models.function import FunctionModel
 
 from test_turn import CALL_1_REPLY, FakeLLM, make_agent
 from zonia.config import contact_email_for
-from zonia.models import ScreeningFields, Status
+from zonia.models import ScreeningFields, Status, Turn
+from zonia.prompt import SYSTEM
 from zonia.turn import FAILURE_REPLY, RETRY_DELAYS, Conversation, run_turn_safely
 
 
@@ -29,13 +32,13 @@ def http(status_code: int) -> ModelHTTPError:
     return ModelHTTPError(status_code=status_code, model_name="fake")
 
 
-def run(fake: FakeLLM, conversation: Conversation, text: str = "Soy Ana López"):
+def run(fake: FakeLLM, conversation: Conversation, text: str = "Soy Ana López", time_limit: float | None = None):
     waits: list[float] = []
 
     async def no_wait(seconds: float) -> None:
         waits.append(seconds)
 
-    turn = asyncio.run(run_turn_safely(make_agent(fake), conversation, text, sleep=no_wait))
+    turn = asyncio.run(run_turn_safely(make_agent(fake), conversation, text, sleep=no_wait, time_limit=time_limit))
     return turn, waits
 
 
@@ -106,3 +109,23 @@ def test_a_turn_that_succeeds_resets_the_failures():
     assert conversation.failed_turns == 0
     third, _ = run(FailingLLM([http(400)]), conversation)
     assert third.reply == FAILURE_REPLY["es"]
+
+
+def test_an_llm_that_does_not_answer_in_the_time_limit_gives_the_failure_reply_and_changes_nothing():
+    async def hang(messages, info):
+        await asyncio.sleep(10)
+
+    conversation = Conversation(fields=ScreeningFields(full_name="Ana López"))
+    agent = Agent(FunctionModel(hang), output_type=Turn, instructions=SYSTEM)
+    turn = asyncio.run(run_turn_safely(agent, conversation, "Sí, tengo carnet", time_limit=0.05))
+    assert (turn.reply, turn.reply_source) == (FAILURE_REPLY["es"], "fallback")
+    assert conversation.fields == ScreeningFields(full_name="Ana López")
+    assert conversation.history == []
+    assert conversation.failed_turns == 1
+
+
+def test_no_new_try_starts_when_its_wait_passes_the_time_limit():
+    fake = FailingLLM([http(503)] * 10)
+    turn, waits = run(fake, Conversation(), time_limit=1.5)
+    assert turn.reply_source == "fallback"
+    assert (fake.calls, waits) == (2, [1])

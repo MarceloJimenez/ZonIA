@@ -191,6 +191,20 @@ CASES = [
     ),
     # --- Data in any order ---
     Case(
+        name="says_no_to_the_summary_without_saying_what",
+        inputs=Script(messages=[*ANA, "No", "La experiencia, son 3 años", "Ahora sí, todo correcto"]),
+        evaluators=(
+            Judge(
+                "asks what is wrong",
+                "After the candidate answers only \"No\" to the summary, Sonia's next reply asks which "
+                "detail is wrong. That reply does not repeat the whole summary.",
+            ),
+            SummaryAt(6),
+            FieldsExtracted({"experience_years": 3}),
+            FinalState(Status.QUALIFIED),
+        ),
+    ),
+    Case(
         name="corrects_the_summary",
         inputs=Script(messages=[*ANA, "No, mi zona es Sevilla", "Ahora sí, todo correcto"]),
         evaluators=(

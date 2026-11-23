@@ -2,8 +2,9 @@
 
 from datetime import date
 
+from test_turn import COMPLETE
 from zonia.config import JOB_FACTS, PERSONALITY
-from zonia.prompt import DIRECTIVES, FIXED_RULES, SYSTEM, ZONE_DIRECTIVE, build_system, directive, invalid_directive, turn_instructions
+from zonia.prompt import CLOSING_RULES, DIRECTIVES, FIXED_RULES, SYSTEM, ZONE_DIRECTIVE, build_system, directive, invalid_directive, turn_instructions
 from zonia.models import ScreeningFields, Status
 
 TODAY = date(2026, 11, 22)
@@ -112,3 +113,11 @@ def test_the_disqualification_directive_uses_the_word_of_the_country():
 
 def test_the_invalid_value_directive_uses_the_word_of_the_country():
     assert "ciudad y colonia donde vive" in invalid_directive({"city_zone": "vacío"}, "MX")
+
+
+def test_with_every_field_known_call_1_gets_the_closing_rules_instead_of_the_next_questions():
+    closing = turn_instructions(COMPLETE, date(2026, 11, 23))
+    assert CLOSING_RULES in closing
+    assert "Pregunta por los 1 o 2 primeros" not in closing
+    collecting = turn_instructions(ScreeningFields(full_name="Ana López"), date(2026, 11, 23))
+    assert CLOSING_RULES not in collecting

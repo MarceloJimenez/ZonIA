@@ -133,6 +133,34 @@ def test_a_correction_shows_a_new_summary_with_the_new_value():
     assert turn.reply_source == "summary"
 
 
+def test_a_no_without_a_new_value_gets_a_question_not_the_same_summary_again():
+    conversation = Conversation(fields=COMPLETE, stage=Stage.CLOSING)
+    fake = FakeLLM([{"intent": "corrects_summary", "reply": "¿Qué dato quieres cambiar?"}])
+    turn = asyncio.run(run_turn(make_agent(fake), conversation, "No"))
+    assert (turn.stage, turn.status) == (Stage.CLOSING, Status.ACTIVE)
+    assert (turn.reply, turn.reply_source) == ("¿Qué dato quieres cambiar?", "call_1")
+    assert conversation.fields == COMPLETE
+
+
+def test_after_the_question_the_new_value_shows_a_new_summary():
+    conversation = Conversation(fields=COMPLETE, stage=Stage.CLOSING)
+    fake = FakeLLM([
+        {"intent": "corrects_summary", "reply": "¿Qué dato quieres cambiar?"},
+        {"fields": {"city_zone": "Salamanca", "service_zone": "Comunidad de Madrid"}, "intent": "corrects_summary"},
+    ])
+    asyncio.run(run_turn(make_agent(fake), conversation, "No"))
+    turn = asyncio.run(run_turn(make_agent(fake), conversation, "La zona, vivo en Salamanca"))
+    assert turn.reply_source == "summary"
+    assert "Zona: Salamanca" in turn.reply
+
+
+def test_a_qualified_candidate_who_says_no_without_a_new_value_gets_a_question():
+    conversation = Conversation(fields=COMPLETE, stage=Stage.CLOSING, status=Status.QUALIFIED)
+    fake = FakeLLM([{"intent": "corrects_summary", "reply": "¿Qué dato quieres cambiar?"}])
+    turn = asyncio.run(run_turn(make_agent(fake), conversation, "Espera, hay algo mal"))
+    assert (turn.status, turn.reply_source) == (Status.ACTIVE, "call_1")
+
+
 def test_a_disqualified_candidate_who_corrects_the_licence_in_closing_sees_a_new_summary():
     conversation = Conversation(
         fields=COMPLETE.model_copy(update={"driver_license": False}), stage=Stage.CLOSING, status=Status.DISQUALIFIED

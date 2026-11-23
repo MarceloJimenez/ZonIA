@@ -162,6 +162,16 @@ def reply_language(language: str) -> str:
     return f"Responde en {LANGUAGE_NAMES_ES[language]}."
 
 
+# Call 1 when every field is known: the candidate is checking the summary.
+# Code shows the summary again only when a value changes, so a "no" alone reaches the LLM.
+CLOSING_RULES = (
+    "Ya tienes todos los datos y el candidato está revisando su resumen. "
+    "Si dice que algo está mal pero no dice qué, pregúntale qué dato quiere cambiar. "
+    "Si da un valor nuevo, ponlo en fields. "
+    "No escribas el resumen: el código lo muestra cuando cambia un dato."
+)
+
+
 def turn_instructions(
     fields: ScreeningFields, today: date, facts: list[str] = JOB_FACTS, language: str = "es", country: str = "ES"
 ) -> str:
@@ -182,9 +192,12 @@ def turn_instructions(
     if missing:
         parts.append("Falta, en este orden:\n" + "\n".join(missing))
     parts.append(facts_section(facts))
-    parts.append(
-        "Pregunta por los 1 o 2 primeros que falten y que el mensaje del candidato no traiga ya. "
-        "Si falta el nombre, pregunta solo el nombre. Nunca preguntes algo que ya sabes. "
-        "No leas la lista de zonas de servicio al candidato: pregunta dónde vive."
-    )
+    if missing:
+        parts.append(
+            "Pregunta por los 1 o 2 primeros que falten y que el mensaje del candidato no traiga ya. "
+            "Si falta el nombre, pregunta solo el nombre. Nunca preguntes algo que ya sabes. "
+            "No leas la lista de zonas de servicio al candidato: pregunta dónde vive."
+        )
+    else:
+        parts.append(CLOSING_RULES)
     return "\n\n".join(parts)

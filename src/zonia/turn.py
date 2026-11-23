@@ -4,8 +4,8 @@
 2. Code merges the fields and decides the new stage and status.
 3. Code checks the new values (zonia.validation). An invalid value is not saved.
 4. If the status changed and a directive exists, or a value was not valid: call 2 writes the reply again.
-   If the conversation enters closing, the candidate corrects the summary, or a closed
-   conversation reopens in closing: code writes the summary and no extra call is made.
+   If the conversation enters closing, a value changes in closing, or a closed conversation
+   reopens in closing: code writes the summary and no extra call is made.
 5. A new disqualification: code adds the review email and the case code to the reply.
 
 Call 1 also says the candidate's language (Spanish or English). The reply, the summary
@@ -109,10 +109,17 @@ async def run_turn(
     intent = result.output.intent
     language = result.output.language
     stage, status = decide(c.stage, c.status, intent, fields)
+    # In closing, the summary comes back only when a value changed. A "no" with no new value
+    # gets the LLM's reply, which asks what is wrong; showing the same summary again was a loop.
+    changed = fields != c.fields
     show_summary = (
         stage == Stage.CLOSING
         and status == Status.ACTIVE
-        and (c.stage != Stage.CLOSING or intent == Intent.CORRECTS_SUMMARY or c.status in FINAL_STATUSES)
+        and (
+            c.stage != Stage.CLOSING
+            or changed
+            or (c.status in FINAL_STATUSES and intent != Intent.CORRECTS_SUMMARY)
+        )
     )
 
     # Call 2 replaces the reply: a new status first, then a value to ask again.

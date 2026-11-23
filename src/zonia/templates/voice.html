@@ -18,11 +18,17 @@
 {% endfor %}
 </div>
 </div>
-<div class="zn-webchat__form">
-<p class="zn-webchat__status" id="status">Pulsa "Hablar" y permite el micrófono.</p>
+<div class="zn-voice">
+<div class="zn-orb" id="orb" data-state="idle" data-muted="false" aria-hidden="true">
+<svg class="zn-orb__mic" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4M3 3l18 18"/></svg>
+</div>
+<p class="zn-voice__status" id="status" aria-live="polite">Pulsa "Hablar" y permite el micrófono.</p>
+<div class="zn-voice__controls">
 <button class="zn-btn zn-btn--primary" id="start" type="button">Hablar</button>
-<button class="zn-btn" id="stop" type="button" disabled>Colgar</button>
+<button class="zn-btn" id="mute" type="button" aria-pressed="false" disabled>Silenciar</button>
+<button class="zn-btn zn-btn--hangup" id="stop" type="button" disabled>Colgar</button>
 <a class="zn-btn" id="home" href="/apply" hidden>Volver al inicio</a>
+</div>
 </div>
 </div>
 <script type="module">
@@ -35,8 +41,49 @@ const status = document.getElementById("status");
 const start = document.getElementById("start");
 const stop = document.getElementById("stop");
 const home = document.getElementById("home");
+const mute = document.getElementById("mute");
+const orb = document.getElementById("orb");
 let conversation = null;
 let greeted = false;
+let muted = false;
+let mode = "listening";  // who has the turn: "speaking" (Sonia) or "listening" (Sonia listens)
+let level = 0;
+let frame = 0;
+
+// The circle shows the turn: connecting, speaking, listening or ended. data-muted adds the crossed microphone.
+function show(state, text) {
+  orb.dataset.state = state;
+  if (text) status.textContent = text;
+}
+
+function showTurn() {
+  if (mode === "speaking") show("speaking", "Sonia está hablando…");
+  else show("listening", muted ? "Micrófono silenciado. Sonia no te oye." : "Te escucho…");
+}
+
+// Each frame, the circle grows with the volume of whoever has the turn (0 to 1).
+function animate() {
+  if (!conversation) return;
+  let volume = 0;
+  try {
+    if (mode === "speaking") volume = conversation.getOutputVolume();
+    else if (!muted) volume = conversation.getInputVolume();
+  } catch (error) {
+    volume = 0;
+  }
+  level += (volume - level) * 0.3;
+  orb.style.setProperty("--level", Math.min(1, level * 1.6).toFixed(3));
+  frame = requestAnimationFrame(animate);
+}
+
+function setMuted(value) {
+  muted = value;
+  conversation?.setMicMuted(muted);
+  orb.dataset.muted = String(muted);
+  mute.setAttribute("aria-pressed", String(muted));
+  mute.textContent = muted ? "Activar micrófono" : "Silenciar";
+  if (conversation) showTurn();
+}
 
 // Adds each message with textContent, never as HTML.
 function add(who, text, mine) {
@@ -55,7 +102,11 @@ function add(who, text, mine) {
 
 function ended(text) {
   conversation = null;
-  status.textContent = text;
+  cancelAnimationFrame(frame);
+  orb.style.setProperty("--level", 0);
+  setMuted(false);
+  mute.disabled = true;
+  show("ended", text);
   start.disabled = false;
   stop.disabled = true;
   // After a call: call again (Sonia starts with her last message) or go back to the job page.
@@ -66,18 +117,19 @@ function ended(text) {
 start.addEventListener("click", async () => {
   start.disabled = true;
   home.hidden = true;
-  status.textContent = "Conectando…";
+  show("connecting", "Conectando…");
   greeted = false;
+  mode = "listening";
   try {
     conversation = await Conversation.startSession({
       agentId: settings.agentId,
       connectionType: "websocket",
       customLlmExtraBody: {case_code: settings.caseCode},
       overrides: {agent: {firstMessage: settings.firstMessage}},
-      onConnect: () => { status.textContent = "Habla cuando quieras."; stop.disabled = false; },
+      onConnect: () => { show("listening", "Habla cuando quieras."); stop.disabled = false; mute.disabled = false; },
       onDisconnect: () => ended("Llamada terminada."),
       onError: () => ended("No pude conectar la llamada. Inténtalo de nuevo."),
-      onModeChange: ({mode}) => { status.textContent = mode === "speaking" ? "Sonia está hablando…" : "Te escucho…"; },
+      onModeChange: (change) => { mode = change.mode; showTurn(); },
       onMessage: ({source, message}) => {
         // The first message is Sonia's last message, already on the page.
         if (source === "ai" && !greeted) { greeted = true; return; }
@@ -85,10 +137,13 @@ start.addEventListener("click", async () => {
         add(source === "user" ? "Tú" : "Sonia", message, source === "user");
       },
     });
+    frame = requestAnimationFrame(animate);
   } catch (error) {
     ended("No pude usar el micrófono. Revisa el permiso del navegador.");
   }
 });
+
+mute.addEventListener("click", () => setMuted(!muted));
 
 stop.addEventListener("click", async () => {
   await conversation?.endSession();

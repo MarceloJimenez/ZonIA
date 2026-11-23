@@ -142,3 +142,10 @@ def test_the_chat_and_voice_pages_link_back_to_the_job_page_not_to_each_other(db
     assert 'href="/apply"' in chat_page and 'href="/apply"' in voice_page
     assert f'href="/voice/{case_code}"' not in chat_page
     assert f'href="/chat/{case_code}"' not in voice_page
+
+
+def test_the_voice_page_has_the_turn_circle_and_the_call_controls(db):
+    test_client = client(db, FakeLLM([]))
+    page = test_client.get(f"/voice/{apply(test_client)}").text
+    for control in ['id="orb"', 'id="start"', 'id="mute"', 'id="stop"']:
+        assert control in page

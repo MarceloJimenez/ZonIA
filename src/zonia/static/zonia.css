@@ -118,3 +118,38 @@ tbody tr:hover { background: var(--surface-tint); }
 .zn-apply__country input { margin-top: 4px; accent-color: var(--brand); }
 .zn-apply__country span { display: flex; flex-direction: column; gap: 2px; }
 .zn-apply__country small { font-size: 13px; color: var(--ink-muted); }
+
+/* Voice: a circle that shows the turn, and the call controls.
+   --level is the volume of whoever has the turn, from 0 to 1, set each frame by voice.html. */
+.zn-voice { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding: 20px 16px 16px; border-top: 1px solid var(--on-night-line); }
+.zn-voice__status { margin: 0; min-height: 20px; font-size: 14px; color: var(--on-night-muted); text-align: center; }
+.zn-voice__controls { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); }
+.zn-voice .zn-btn { color: var(--on-night); border-color: var(--on-night-line); }
+.zn-voice .zn-btn--primary { background: var(--lime); border-color: var(--lime); color: var(--night); }
+.zn-voice .zn-btn[aria-pressed="true"] { background: var(--on-night-fill); border-color: var(--on-night-muted); }
+.zn-voice .zn-btn:disabled { opacity: .5; cursor: default; }
+.zn-orb { --level: 0; position: relative; width: 88px; height: 88px; border-radius: 50%; display: grid; place-items: center; background: var(--night-raised); border: 1px solid var(--on-night-line); color: var(--on-night-muted); transition: background .3s, box-shadow .3s; }
+.zn-orb::before, .zn-orb::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid transparent; pointer-events: none; }
+.zn-orb__mic { display: none; }
+.zn-orb[data-muted="true"] .zn-orb__mic { display: block; }
+
+/* Connecting: a lime arc turns around the circle. */
+.zn-orb[data-state="connecting"]::before { border-top-color: var(--lime); animation: zn-spin 1s linear infinite; }
+
+/* Sonia speaks: a lime circle that grows and glows with her voice. */
+.zn-orb[data-state="speaking"] { background: radial-gradient(circle at 35% 35%, var(--lime), var(--signal)); border-color: var(--lime); transform: scale(calc(1 + var(--level) * 0.18)); box-shadow: 0 0 calc(10px + var(--level) * 40px) color-mix(in srgb, var(--lime) 55%, transparent); }
+.zn-orb[data-state="speaking"] .zn-orb__mic { color: var(--night); }
+
+/* Sonia listens: a green ring that moves with the candidate's microphone, and a slow wave around it. */
+.zn-orb[data-state="listening"]::before { border-color: var(--signal); transform: scale(calc(1 + var(--level) * 0.35)); opacity: calc(.45 + var(--level) * .55); }
+.zn-orb[data-state="listening"]::after { border-color: var(--signal); animation: zn-wave 2.2s ease-out infinite; }
+
+/* Muted while Sonia listens: grey and still. */
+.zn-orb[data-state="listening"][data-muted="true"]::before,
+.zn-orb[data-state="listening"][data-muted="true"]::after { border-color: var(--on-night-line); animation: none; transform: none; opacity: 1; }
+
+@keyframes zn-spin { to { transform: rotate(360deg); } }
+@keyframes zn-wave { from { transform: scale(1); opacity: .5; } to { transform: scale(1.45); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .zn-orb, .zn-orb::before, .zn-orb::after { animation: none !important; transition: none; }
+}

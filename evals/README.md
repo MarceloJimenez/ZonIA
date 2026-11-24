@@ -13,6 +13,17 @@ The run uses the provider in `.env`. It waits 4.5 s between LLM requests to stay
 
 Each run prints a table and saves a report in `reports/`, named by date and time. A report holds the model, the commit, the result of every check, the reason for every failure, and every transcript.
 
+## Simulated candidates
+
+`personas.py` lets an LLM play a candidate with a personality, for example one who jokes or one who answers with one word. The conversations are not scripted. They show how Sonia handles odd, silly or unclear answers.
+
+```bash
+uv run python evals/personas.py             # every persona
+uv run python evals/personas.py bromista    # only the named personas
+```
+
+An LLM judge checks 4 rules for each conversation (`RULES` in `personas.py`). The result is not an exact pass or fail: a person reads the transcripts. The report is saved in `reports/` as `personas_<date>_<time>.md`.
+
 ## How a case works
 
 1. A case is a scripted conversation: a list of candidate messages (`cases.py`).

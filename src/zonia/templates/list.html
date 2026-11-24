@@ -8,13 +8,42 @@
 <p>{{ rows | length }} of {{ total }} conversations</p>
 </div>
 
-<nav class="row-wrap" aria-label="Filter by status">
-{% for label, value in filters %}
-<a class="zn-btn {{ 'zn-btn--primary' if value == status else 'zn-btn--outline' }}"
-   href="{{ '/' if value is none else '/?status=' ~ value.value }}"
-   {% if value == status %}aria-current="page"{% endif %}>{{ label }}</a>
+{% macro select(name, label, choices, current) %}
+<label class="filter"><span>{{ label }}</span>
+<select name="{{ name }}" onchange="this.form.submit()">
+<option value="">All</option>
+{% for value, text in choices %}<option value="{{ value }}"{{ ' selected' if value == current }}>{{ text }}</option>{% endfor %}
+</select>
+</label>
+{% endmacro %}
+
+<form class="filters" method="get" action="/" role="search" aria-label="Filter the candidates">
+<details class="filter-menu">
+<summary class="filter-toggle" aria-label="Filters">
+<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5L3 5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+{% if filters.chosen %}<span class="filter-count">{{ filters.chosen }}</span>{% endif %}
+</summary>
+<div class="filter-panel">
+{{ select("status", "Status", options.status, filters.status.value if filters.status else none) }}
+{{ select("country", "Country", options.country, filters.country) }}
+<label class="filter"><span>Zone</span>
+<select name="zone" onchange="this.form.submit()">
+<option value="">All</option>
+{% for country, zones in options.zone.items() %}
+<optgroup label="{{ country }}">
+{% for z in zones %}<option value="{{ z }}"{{ ' selected' if z == filters.zone }}>{{ z }}</option>{% endfor %}
+</optgroup>
 {% endfor %}
-</nav>
+<option value="{{ outside_zone }}"{{ ' selected' if filters.zone == outside_zone }}>Outside zones</option>
+</select>
+</label>
+{{ select("availability", "Availability", options.availability, filters.availability) }}
+{{ select("schedule", "Schedule", options.schedule, filters.schedule) }}
+</div>
+</details>
+<input class="filter-search" type="search" name="q" value="{{ filters.search or '' }}" placeholder="Search name, phone or case code" aria-label="Search">
+{% if filters.chosen or filters.search %}<a class="filter-clear" href="/">Clear</a>{% endif %}
+</form>
 
 <div class="zn-panel">
 <div class="zn-panel__hd"><span>Conversations</span><small>Qualified first, then newest</small></div>

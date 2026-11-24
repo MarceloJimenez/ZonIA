@@ -5,6 +5,7 @@ Read-only. It reads the same SQLite file as Sonia (ZONIA_DB, or zonia.db).
 """
 
 import os
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Callable
@@ -16,6 +17,7 @@ from fastapi.templating import Jinja2Templates
 
 from dotenv import load_dotenv
 
+from zonia.config import SERVICE_ZONES
 from zonia.flow import render_summary
 from zonia.models import OUTSIDE_ZONE, ScreeningFields, Stage, Status
 from zonia.storage import ConversationRow, Storage
@@ -130,6 +132,52 @@ def list_row(c: ConversationRow, now: datetime) -> dict:
     }
 
 
+@dataclass
+class Filters:
+    """The list filters, as the URL gives them. None means "all"."""
+
+    status: Status | None = None
+    country: str | None = None
+    zone: str | None = None  # a service zone, or OUTSIDE_ZONE
+    availability: str | None = None
+    schedule: str | None = None
+    search: str | None = None  # part of the name, the phone or the case code
+
+    @property
+    def chosen(self) -> int:
+        """How many of the five lists have a value. The search is not counted: it is always in sight."""
+        return sum(v is not None for v in (self.status, self.country, self.zone, self.availability, self.schedule))
+
+    def matches(self, c: ConversationRow) -> bool:
+        f = c.fields
+        return (
+            (self.status is None or c.status == self.status)
+            and (self.country is None or c.country == self.country)
+            and (self.zone is None or f.service_zone == self.zone)
+            and (self.availability is None or self.availability in (f.availability or []))
+            and (self.schedule is None or self.schedule in (f.schedule or []))
+            and (self.search is None or self._found(c))
+        )
+
+    def _found(self, c: ConversationRow) -> bool:
+        needle = self.search.casefold()
+        digits = "".join(ch for ch in needle if ch.isdigit())
+        return (
+            needle in (c.fields.full_name or "").casefold()
+            or needle in c.case_code.casefold()
+            or (len(digits) >= 3 and digits in (c.phone or ""))
+        )
+
+
+def _choice(name: str, value: str | None, allowed) -> str | None:
+    """An empty value means "all". A value outside the allowed ones is an error (422)."""
+    if not value:
+        return None
+    if value not in allowed:
+        raise HTTPException(status_code=422, detail=f"Unknown {name}: {value}")
+    return value
+
+
 def _utc_now() -> datetime:
     return datetime.now(UTC)
 
@@ -145,19 +193,48 @@ def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) ->
         return Storage(db_path)
 
     @app.get("/", response_class=HTMLResponse)
-    def candidate_list(request: Request, status: Status | None = None):
+    def candidate_list(
+        request: Request,
+        status: str | None = None,
+        country: str | None = None,
+        zone: str | None = None,
+        availability: str | None = None,
+        schedule: str | None = None,
+        q: str | None = None,
+    ):
+        status = _choice("status", status, {s.value for s in Status})
+        filters = Filters(
+            status=None if status is None else Status(status),
+            country=_choice("country", country, SERVICE_ZONES),
+            zone=_choice("zone", zone, {OUTSIDE_ZONE, *(z for zones in SERVICE_ZONES.values() for z in zones)}),
+            availability=_choice("availability", availability, AVAILABILITY_EN),
+            schedule=_choice("schedule", schedule, SCHEDULE_EN),
+            search=(q or "").strip() or None,
+        )
         storage = open_storage()
         try:
             every = storage.conversations()
         finally:
             storage.close()
-        shown = [c for c in every if status is None or c.status == status]
+        shown = [c for c in every if filters.matches(c)]
         shown.sort(key=lambda c: c.status != Status.QUALIFIED)  # qualified first; sort is stable, so newest next
-        filters = [("All", None), *((status_label(s), s) for s in Status)]
+        options = {
+            "status": [(s.value, status_label(s)) for s in Status],
+            "country": [(country, country) for country in SERVICE_ZONES],
+            "zone": SERVICE_ZONES,  # grouped by country in the template
+            "availability": list(AVAILABILITY_EN.items()),
+            "schedule": list(SCHEDULE_EN.items()),
+        }
         return templates.TemplateResponse(
             request,
             "list.html",
-            {"rows": [list_row(c, clock()) for c in shown], "total": len(every), "filters": filters, "status": status},
+            {
+                "rows": [list_row(c, clock()) for c in shown],
+                "total": len(every),
+                "filters": filters,
+                "options": options,
+                "outside_zone": OUTSIDE_ZONE,
+            },
         )
 
     @app.get("/conversations/{conversation_id}", response_class=HTMLResponse)

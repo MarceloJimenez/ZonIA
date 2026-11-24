@@ -44,6 +44,18 @@ td.phone { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .page-head .call { align-self: flex-start; }
 td.soft { color: var(--ink-2); }
 td.nowrap { white-space: nowrap; }
+.filters { display: flex; align-items: center; gap: var(--space-3); }
+.filter-menu { position: relative; }
+.filter-toggle { list-style: none; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.filter-toggle::-webkit-details-marker { display: none; }
+.filter-toggle:hover, .filter-menu[open] .filter-toggle { color: var(--ink); background: var(--surface-tint); }
+.filter-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.filter-count { min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--brand); color: var(--on-brand); font: 600 11px/18px var(--font-sans); text-align: center; }
+.filter-panel { position: absolute; z-index: 10; top: calc(100% + 6px); left: 0; display: grid; gap: var(--space-3); width: 260px; padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); box-shadow: 0 8px 24px rgb(0 0 0 / 0.08); }
+.filter { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.filter select, .filter-search { font: 400 14px/1.4 var(--font-sans); padding: 9px 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); color: var(--ink); }
+.filter-search { width: 280px; max-width: 100%; height: 40px; box-sizing: border-box; }
+.filter-clear { font-size: 13px; color: var(--ink-2); }
 tbody tr:hover { background: var(--surface-tint); }
 
 /* Button */

@@ -65,6 +65,48 @@ def test_the_status_filter_shows_only_that_status(client):
     assert "Ana López" not in response.text
 
 
+@pytest.mark.parametrize(
+    ("query", "shown"),
+    [
+        ("country=MX", ["Marta Gil"]),
+        ("zone=Comunidad+de+Madrid", ["Ana López"]),
+        ("availability=full-time", ["Ana López"]),
+        ("schedule=morning", ["Ana López"]),
+        ("schedule=evening", []),
+        ("q=luis", ["Luis Pérez"]),  # part of the name, any case
+        ("q=600+111", ["Ana López"]),  # part of the phone, with a space
+        ("q=k7px", ["Marta Gil"]),  # part of the case code
+        ("country=ES&status=active", ["Luis Pérez"]),  # filters add up
+        ("status=&country=&zone=&availability=&schedule=&q=", ["Ana López", "Marta Gil", "Luis Pérez"]),  # "All"
+    ],
+)
+def test_the_filters_show_only_the_matching_candidates(client, query, shown):
+    html = client.get(f"/?{query}").text
+    assert f"{len(shown)} of 3 conversations" in html
+    for name in ["Luis Pérez", "Ana López", "Marta Gil"]:
+        assert (f">{name}</a>" in html) == (name in shown)
+
+
+def test_the_form_keeps_the_chosen_filters(client):
+    html = client.get("/?country=ES&zone=Comunidad+de+Madrid&q=ana").text
+    assert '<option value="ES" selected>' in html
+    assert '<option value="Comunidad de Madrid" selected>' in html
+    assert 'value="ana"' in html
+
+
+def test_the_filter_icon_shows_how_many_lists_are_chosen(client):
+    assert '<span class="filter-count">2</span>' in client.get("/?country=ES&schedule=morning&q=ana").text
+    html = client.get("/?q=ana").text
+    assert "filter-count" not in html
+    assert ">Clear</a>" in html
+    assert ">Clear</a>" not in client.get("/").text
+
+
+@pytest.mark.parametrize("query", ["country=FR", "zone=Lima", "availability=nights", "schedule=night"])
+def test_an_unknown_filter_value_is_rejected(client, query):
+    assert client.get(f"/?{query}").status_code == 422
+
+
 def test_an_unknown_status_is_rejected(client):
     assert client.get("/?status=hired").status_code == 422
 

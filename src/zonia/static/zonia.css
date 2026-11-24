@@ -109,6 +109,10 @@ tbody tr:hover { background: var(--surface-tint); }
 .zn-cpanel__title { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 600; }
 .zn-cpanel__body { display: flex; flex-direction: column; gap: var(--space-3); padding: 16px; }
 .zn-cpanel__body .zn-pill { align-self: center; }
+/* Candidate page: the transcript stays in view and scrolls inside its own panel. */
+.columns > .side:has(.transcript) { position: sticky; top: 16px; }
+.transcript { display: flex; flex-direction: column; max-height: calc(100vh - 32px); }
+.transcript .zn-cpanel__body { overflow-y: auto; overscroll-behavior: contain; }
 .zn-cpanel__empty { margin: 0; font-size: 12.8px; color: var(--on-night-muted); }
 
 /* Apply page: the mock job page with the phone field */

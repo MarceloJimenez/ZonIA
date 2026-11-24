@@ -65,7 +65,7 @@ Meta delivers messages only after the business is verified. Until then, the web 
  WhatsApp ─┐
  Web chat ─┼─> adapters (src/zonia/adapters/http.py) ──> core: one turn (src/zonia/turn.py) ──> LLM
  Voice ────┘                                                   │
- Terminal (src/zonia/main.py) ──────────────────────────────────┤
+ Terminal (src/zonia/cli.py) ───────────────────────────────────┤
                                                                └──> SQLite (src/zonia/storage.py)
  Recruiter dashboard (src/zonia/dashboard.py) ──> SQLite
 ```

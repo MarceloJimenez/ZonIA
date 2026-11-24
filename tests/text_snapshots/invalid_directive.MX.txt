@@ -1,0 +1,5 @@
+Estos datos del candidato no son válidos y no se han guardado:
+- nombre completo: falta al menos un apellido
+- años de experiencia como repartidor: ese número de años no es posible
+- fecha en que puede empezar: esa fecha ya pasó; tiene que ser hoy o más adelante
+Dile en una frase qué esperas y vuelve a preguntar solo por esos datos. No digas que los has anotado.

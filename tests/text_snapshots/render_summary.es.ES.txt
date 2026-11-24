@@ -1,0 +1,10 @@
+Perfecto, Ana. Estos son tus datos:
+- Nombre: Ana López
+- Carné de conducir: Sí
+- Zona: Chamberí, Madrid
+- Disponibilidad: Tiempo completo, Fines de semana
+- Horario: Mañana, Flexible
+- Experiencia: 2 años
+- Plataforma: Glovo
+- Fecha de inicio: 1 de diciembre de 2026
+¿Está todo correcto?

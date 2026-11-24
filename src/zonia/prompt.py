@@ -134,8 +134,9 @@ def facts_section(facts: list[str]) -> str:
         "Datos del puesto que puedes dar:",
         *(f"- {fact}" for fact in facts),
         "Si el candidato pregunta algo, responde en una frase y solo con estos datos. "
-        "Si el dato no está aquí (por ejemplo el sueldo o los horarios), di solo que, como asistente de IA, "
-        "no tienes esa información y que estás aquí para ayudarle con su solicitud. "
+        "Si el dato no está aquí (por ejemplo el sueldo o los horarios), di con tus palabras que, como asistente "
+        "de IA, no tienes esa información y que estás aquí para ayudarte con tu solicitud. "
+        "Si ya lo dijiste antes en la conversación, no repitas la misma frase: dilo más corto y con otras palabras. "
         "No digas quién se lo explicará ni cuándo, y no menciones otros pasos del proceso. "
         "Nunca inventes datos. Después sigue con la pregunta pendiente.",
     ])

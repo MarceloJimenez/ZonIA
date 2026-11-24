@@ -329,6 +329,24 @@ CASES = [
         ),
     ),
     Case(
+        name="asks_the_salary_twice",
+        inputs=Script(messages=[
+            ANA[0],
+            "Sí, tengo carnet y vivo en Chamberí, Madrid. ¿Cuánto se paga?",
+            "Tiempo completo, por las mañanas. Pero dime, ¿cuánto es el sueldo?",
+        ]),
+        evaluators=(
+            FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
+            Judge(
+                "does not repeat itself",
+                "Sonia's last reply gives no figure or detail about pay, and does not say who will explain it "
+                "or when. It does not repeat the same sentence Sonia used the first time the candidate asked "
+                "about pay: it says it in other, shorter words. Then it asks the next screening question "
+                "(years of experience).",
+            ),
+        ),
+    ),
+    Case(
         name="asks_where_the_company_operates",
         inputs=Script(messages=[ANA[0], "¿En qué países está la empresa?"]),
         evaluators=(

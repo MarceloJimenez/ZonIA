@@ -45,6 +45,7 @@ GREETING = [
 # For anything not listed (pay, shift hours...), Sonia says she does not have that information.
 JOB_FACTS = [
     "El puesto es de repartidor.",
+    "Los datos sirven para revisar la solicitud de repartidor.",
 ]
 
 

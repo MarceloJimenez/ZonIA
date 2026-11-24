@@ -67,6 +67,7 @@ Code checks are used for everything that can be measured exactly. The LLM judge 
 | `everything_in_first_message` | All data in one message gives the summary at once. |
 | `zone_before_it_is_asked` | Data given early is not asked again. |
 | `no_experience_no_platform_question` | With no experience, the platform is never asked. "Licencia de manejo" (Mexico) is read as a licence. |
+| `asks_the_salary_twice` | A candidate who asks about pay a second time gets no figure and not the same sentence as the first time, in other, shorter words. |
 | `reopens_after_no_licence` | A disqualified candidate who says they do have a licence goes back to data collection. |
 | `reopens_after_withdrawing` | "Bueno, sí me interesa" is read as `continue` and reopens a withdrawn conversation. |
 | `qualified_corrects_a_field` | A qualified candidate who corrects a value sees a new summary and is active again. |

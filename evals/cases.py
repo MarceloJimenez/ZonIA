@@ -18,7 +18,10 @@ NO_REPEATED_QUESTION = Judge(
     "conversation or in the same message. Asking again for something not answered yet is fine. "
     "Showing a summary of the data and asking to confirm it is not a repeated question. "
     "Naming a requirement to explain why the candidate cannot continue is not a question. "
-    "Asking again for a value that was not valid (for example a date in the past) is fine.",
+    "Asking again for a value that was not valid (for example a date in the past) is fine. "
+    "When Sonia offers options and the candidate answers with something that is not one of them "
+    "(for example specific weekdays instead of full-time, part-time or weekends), asking again to choose "
+    "one of the options is fine.",
 )
 SAYS_DISQUALIFIED = Judge(
     "follows directive",
@@ -46,6 +49,12 @@ SAYS_QUALIFIED = Judge(
     "follows directive",
     "Sonia's last reply thanks the candidate and says the selection team will review the "
     "application and contact them. It asks no further questions.",
+)
+
+ASKS_TO_CHOOSE_AVAILABILITY = Judge(
+    "asks to choose availability",
+    "Sonia's last reply asks the candidate to choose between full-time, part-time or weekends. "
+    "It does not say which of the three the candidate's days are, and it does not say the answer was saved.",
 )
 
 
@@ -159,6 +168,24 @@ CASES = [
             FieldsExtracted({"driver_license": True, "city_zone": None, "service_zone": None}),
             FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
             Judge("asks for the city", "Sonia's last reply asks the candidate in which city or neighborhood they live."),
+        ),
+    ),
+    Case(
+        name="availability_specific_weekdays",
+        inputs=Script(messages=[*ANA[:2], "puedo martes miercoles y jueves"]),
+        evaluators=(
+            FieldsExtracted({"availability": None}),
+            FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
+            ASKS_TO_CHOOSE_AVAILABILITY,
+        ),
+    ),
+    Case(
+        name="availability_other_weekdays",
+        inputs=Script(messages=[*ANA[:2], "puedo lunes miercoles y viernes"]),
+        evaluators=(
+            FieldsExtracted({"availability": None}),
+            FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
+            ASKS_TO_CHOOSE_AVAILABILITY,
         ),
     ),
     Case(

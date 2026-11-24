@@ -61,7 +61,15 @@ class ScreeningFields(BaseModel):
     # Filled together with city_zone. turn_model() narrows it to the country's zones.
     service_zone: Optional[str] = None
 
-    availability: Optional[list[Literal["full-time", "part-time", "weekends"]]] = None
+    availability: Optional[list[Literal["full-time", "part-time", "weekends"]]] = Field(
+        None,
+        description=(
+            "Rellénalo solo si el candidato dice claramente una o más de estas opciones: tiempo completo (full-time), "
+            "medio tiempo (part-time) o fines de semana (weekends). Si responde de otra forma, por ejemplo con días "
+            "concretos (\"martes y jueves\") o con horas, déjalo vacío y no elijas tú la opción: "
+            "en tu respuesta, pídele que elija una de las tres."
+        ),
+    )
 
     schedule: Optional[list[Literal["morning", "afternoon", "evening", "flexible"]]] = None
 

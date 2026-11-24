@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from test_turn import COMPLETE
-from zonia.dashboard import create_app, experience, field_rows, service_zone, waiting
+from zonia.dashboard import create_app, experience, field_rows, initials, service_zone, waiting
 from zonia.models import RecruiterOutcome, ScreeningFields, Stage, Status
 from zonia.storage import Storage
 from zonia.turn import Conversation, TurnResult
@@ -193,14 +193,14 @@ def test_the_recruiter_sets_an_outcome_with_a_note(client):
     response = client.post("/conversations/2/updates", data={"outcome": "interview", "note": "  Tuesday 10:00  "})
     assert response.status_code == 200  # the client follows the 303 to the candidate page
     assert response.url.path == "/conversations/2"
-    assert '<span class="zn-tag outcome">Interview</span>' in response.text
+    assert '<span class="zn-tag outcome zn-tag--info">Interview</span>' in response.text
     assert "<strong>Interview</strong> · Tuesday 10:00</span>" in response.text
 
 
 def test_a_note_alone_keeps_the_outcome_and_the_newest_update_is_first(client):
     client.post("/conversations/2/updates", data={"outcome": "no_answer"})
     html = client.post("/conversations/2/updates", data={"note": "Call again after 18:00"}).text
-    assert '<span class="zn-tag outcome">No answer</span>' in html
+    assert '<span class="zn-tag outcome zn-tag--warn">No answer</span>' in html
     assert html.index("Call again after 18:00") < html.index("<strong>No answer</strong>")
 
 
@@ -274,7 +274,7 @@ def test_to_call_shows_the_longest_wait_first_and_keeps_the_view_when_filtering(
 
 def test_the_all_view_shows_the_recruiter_outcome(client):
     client.post("/conversations/2/updates", data={"outcome": "no_answer"})
-    assert '<td class="soft nowrap">No answer</td>' in client.get("/?view=all").text
+    assert '<td class="nowrap"><span class="zn-tag zn-tag--warn">No answer</span></td>' in client.get("/?view=all").text
 
 
 def test_an_unknown_view_is_rejected(client):
@@ -300,3 +300,28 @@ def test_a_technical_error_is_labelled_and_highlighted(tmp_path):
     assert "Rosa Díaz" in response.text
     assert "zn-tag--alert" in response.text
     assert "Technical error" in response.text
+
+
+@pytest.mark.parametrize(("name", "shown"), [("Ana López", "AL"), ("rosa", "R"), ("Ana María López Gil", "AM"), (None, "?")])
+def test_initials(name, shown):
+    assert initials(name) == shown
+
+
+def test_the_list_colours_each_status(client):
+    html = client.get("/?view=all").text
+    assert '<span class="zn-tag zn-tag--ok">Qualified</span>' in html
+    assert '<span class="zn-tag zn-tag--info">Active</span>' in html
+    assert '<span class="zn-tag zn-tag--muted">Disqualified</span>' in html
+    assert '<span class="avatar" aria-hidden="true">AL</span>' in html
+
+
+def test_a_wait_of_a_day_or_more_is_marked_late(tmp_path):
+    saved = datetime(2026, 11, 24, 9, 0, tzinfo=UTC)
+    path = tmp_path / "zonia.db"
+    storage = Storage(path, clock=lambda: saved)
+    storage.create(Conversation(fields=ScreeningFields(full_name="Rosa Díaz")))
+    storage.close()
+    late = TestClient(create_app(path, clock=lambda: saved + timedelta(hours=24))).get("/?view=all").text
+    assert '<td class="soft nowrap late">1 d</td>' in late
+    on_time = TestClient(create_app(path, clock=lambda: saved + timedelta(hours=23))).get("/?view=all").text
+    assert '<td class="soft nowrap">23 h</td>' in on_time

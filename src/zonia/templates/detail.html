@@ -4,22 +4,25 @@
 <a class="back" href="/">← All candidates</a>
 
 <div class="page-head">
+<div class="person">
+<span class="avatar avatar--lg" aria-hidden="true">{{ row.initials }}</span>
 <h1>{{ row.name }}</h1>
+{% if row.phone %}<a class="zn-btn zn-btn--primary call" href="tel:{{ row.phone }}">Call {{ row.phone }}</a>{% endif %}
+</div>
 <div class="row-wrap">
-<span class="zn-tag{{ ' zn-tag--ok' if row.qualified }}{{ ' zn-tag--alert' if row.technical_error }}">{{ row.status }}</span>
+<span class="zn-tag{{ ' zn-tag--' ~ row.status_tone if row.status_tone }}">{{ row.status }}</span>
 <span class="zn-tag zn-tag--code">{{ row.country }}</span>
 <span class="zn-tag">{{ row.stage }}</span>
 <span class="zn-tag zn-tag--code">Case {{ row.case_code }}</span>
 <p>Started {{ row.started }} · Last message {{ row.last }}</p>
 </div>
-{% if row.phone %}<a class="zn-btn zn-btn--primary call" href="tel:{{ row.phone }}">Call {{ row.phone }}</a>{% endif %}
 </div>
 
 <div class="columns">
 <div class="main">
 
 <div class="zn-panel">
-<div class="zn-panel__hd"><span>Recruiter</span>{% if row.outcome %}<span class="zn-tag outcome">{{ row.outcome }}</span>{% endif %}</div>
+<div class="zn-panel__hd"><span>Recruiter</span>{% if row.outcome %}<span class="zn-tag outcome{{ ' zn-tag--' ~ row.outcome_tone if row.outcome_tone }}">{{ row.outcome }}</span>{% endif %}</div>
 <form class="recruiter-form" method="post" action="/conversations/{{ row.id }}/updates">
 <textarea name="note" rows="2" maxlength="{{ note_max }}" placeholder="Note (optional)" aria-label="Note"></textarea>
 <div class="row-wrap">
@@ -36,9 +39,11 @@
 
 <div class="zn-panel">
 <div class="zn-panel__hd"><span>Screening fields</span></div>
+<dl class="field-grid">
 {% for label, value in fields %}
-<div class="zn-panel__row"><span class="label">{{ label }}</span><span class="value">{{ value }}</span></div>
+<div><dt>{{ label }}</dt><dd{{ ' class="empty"' if value == "—" }}>{{ value }}</dd></div>
 {% endfor %}
+</dl>
 </div>
 
 {% if summary %}

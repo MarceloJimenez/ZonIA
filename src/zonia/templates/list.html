@@ -13,6 +13,9 @@
 <a href="/?view=all"{% if view == "all" %} aria-current="page"{% endif %}>All</a>
 </nav>
 
+{% macro cell(value) %}{% if value == "—" %}<span class="empty">—</span>{% else %}{{ value }}{% endif %}{% endmacro %}
+{% macro tag(label, tone) %}<span class="zn-tag{{ ' zn-tag--' ~ tone if tone }}">{{ label }}</span>{% endmacro %}
+
 {% macro select(name, label, choices, current) %}
 <label class="filter"><span>{{ label }}</span>
 <select name="{{ name }}" onchange="this.form.submit()">
@@ -54,7 +57,7 @@
 <div class="zn-panel">
 <div class="zn-panel__hd"><span>Conversations</span><small>{% if view == "to_call" %}Qualified, not reached yet · longest wait first{% else %}Qualified first, then newest{% endif %}</small></div>
 <div class="table-box">
-<table>
+<table class="rows">
 <thead>
 <tr>
 <th>Name</th><th>Phone</th><th>Zone</th><th>Availability</th><th>Schedule</th><th>Experience</th><th>Start date</th>{% if view == "all" %}<th>Status</th>{% endif %}<th>Recruiter</th><th>Waiting</th>
@@ -63,16 +66,16 @@
 <tbody>
 {% for r in rows %}
 <tr>
-<td class="name"><a href="/conversations/{{ r.id }}">{{ r.name }}</a></td>
-<td class="phone">{% if r.phone %}<a href="tel:{{ r.phone }}">{{ r.phone }}</a>{% else %}—{% endif %}</td>
-<td>{{ r.service_zone }}</td>
-<td>{{ r.availability }}</td>
-<td>{{ r.schedule }}</td>
-<td>{{ r.experience }}</td>
-<td class="soft nowrap">{{ r.start_date }}</td>
-{% if view == "all" %}<td><span class="zn-tag{{ ' zn-tag--ok' if r.qualified }}{{ ' zn-tag--alert' if r.technical_error }}">{{ r.status }}</span></td>{% endif %}
-<td class="soft nowrap">{{ r.outcome or '—' }}</td>
-<td class="soft nowrap">{{ r.waiting }}</td>
+<td class="name"><span class="avatar" aria-hidden="true">{{ r.initials }}</span><a href="/conversations/{{ r.id }}">{{ r.name }}</a></td>
+<td class="phone">{% if r.phone %}<a href="tel:{{ r.phone }}">{{ r.phone }}</a>{% else %}<span class="empty">—</span>{% endif %}</td>
+<td>{{ cell(r.service_zone) }}</td>
+<td>{{ cell(r.availability) }}</td>
+<td>{{ cell(r.schedule) }}</td>
+<td>{{ cell(r.experience) }}</td>
+<td class="soft nowrap">{{ cell(r.start_date) }}</td>
+{% if view == "all" %}<td>{{ tag(r.status, r.status_tone) }}</td>{% endif %}
+<td class="nowrap">{% if r.outcome %}{{ tag(r.outcome, r.outcome_tone) }}{% else %}<span class="empty">—</span>{% endif %}</td>
+<td class="soft nowrap{{ ' late' if r.late }}">{{ r.waiting }}</td>
 </tr>
 {% endfor %}
 </tbody>

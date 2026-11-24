@@ -39,6 +39,25 @@ OUTCOME_LABELS = {
 
 NOTE_MAX = 2000  # characters; a note is a few lines, not a document
 
+# Tag colours: ok is green, info blue, warn amber, muted grey, alert red. A status or outcome not listed is neutral.
+STATUS_TONE = {
+    Status.QUALIFIED: "ok",
+    Status.ACTIVE: "info",
+    Status.PAUSED: "info",
+    Status.DISQUALIFIED: "muted",
+    Status.WITHDRAWN: "muted",
+    Status.INCOMPLETE: "muted",
+    Status.TECHNICAL_ERROR: "alert",
+}
+OUTCOME_TONE = {
+    RecruiterOutcome.INTERVIEW: "info",
+    RecruiterOutcome.HIRED: "ok",
+    RecruiterOutcome.REJECTED: "muted",
+    RecruiterOutcome.NO_ANSWER: "warn",
+}
+
+LATE = timedelta(hours=24)  # from this wait on, the Waiting column turns amber
+
 EMPTY = "—"
 
 
@@ -96,6 +115,12 @@ def waiting(since: datetime, now: datetime) -> str:
     return f"{gap.days} d"
 
 
+def initials(name: str | None) -> str:
+    """The first letters of the first two words of the name, for example "AL" for "Ana López". "?" without a name."""
+    words = (name or "").split()
+    return "".join(w[0] for w in words[:2]).upper() or "?"
+
+
 def field_rows(fields: ScreeningFields) -> list[tuple[str, str]]:
     """(label, value) for each screening field. An empty field shows EMPTY."""
     licence = EMPTY if fields.driver_license is None else ("Yes" if fields.driver_license else "No")
@@ -123,10 +148,10 @@ def list_row(c: ConversationRow, now: datetime) -> dict:
     return {
         "id": c.id,
         "name": c.fields.full_name or f"Conversation {c.id}",
+        "initials": initials(c.fields.full_name),
         "country": c.country,
         "status": status_label(c.status),
-        "qualified": c.status == Status.QUALIFIED,
-        "technical_error": c.status == Status.TECHNICAL_ERROR,  # the recruiter contacts the candidate again
+        "status_tone": STATUS_TONE.get(c.status),
         "stage": STAGE_LABELS[c.stage],
         "zone": zone(c.fields),
         "started": when(c.created_at),
@@ -134,12 +159,14 @@ def list_row(c: ConversationRow, now: datetime) -> dict:
         "case_code": c.case_code,
         "phone": c.phone,
         "outcome": None if c.outcome is None else OUTCOME_LABELS[c.outcome],
+        "outcome_tone": OUTCOME_TONE.get(c.outcome),
         "service_zone": service_zone(c.fields),
         "availability": availability(c.fields),
         "schedule": schedule(c.fields),
         "experience": experience(c.fields),
         "start_date": start_date(c.fields),
         "waiting": waiting(c.updated_at, now),
+        "late": now - c.updated_at >= LATE,
     }
 
 

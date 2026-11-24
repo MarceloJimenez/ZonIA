@@ -44,7 +44,8 @@ def write_report(report, started: datetime) -> Path:
     out = [
         f"# Eval run {started:%Y-%m-%d %H:%M}",
         "",
-        f"- Model: `{os.environ.get('ZONIA_MODEL')}` (agent and judge)",
+        f"- Model: `{os.environ.get('ZONIA_MODEL')}` (agent)",
+        f"- Judge model: `{os.environ.get('ZONIA_JUDGE_MODEL')}` (high reasoning effort)",
         f"- Code: `{git_version()}`",
         f"- Cases passed: **{passed} of {len(report.cases) + len(report.failures)}**",
         "",

@@ -11,7 +11,7 @@ from typing import Any
 from pydantic_evals.evaluators import EvaluationReason, Evaluator, EvaluatorContext
 from pydantic_evals.evaluators.llm_as_a_judge import judge_output
 
-from conversation import MODEL, Script, Transcript, with_retries
+from conversation import JUDGE_MODEL, JUDGE_SETTINGS, Script, Transcript, with_retries
 from zonia.models import Intent, Stage, Status
 
 Ctx = EvaluatorContext[Script, Transcript, None]
@@ -119,5 +119,5 @@ class Judge(Evaluator[Script, Transcript, None]):
     rubric: str
 
     async def evaluate(self, ctx: Ctx) -> dict[str, EvaluationReason]:
-        grade = await with_retries(lambda: judge_output(ctx.output.text(), self.rubric, model=MODEL))
+        grade = await with_retries(lambda: judge_output(ctx.output.text(), self.rubric, model=JUDGE_MODEL, model_settings=JUDGE_SETTINGS))
         return {self.name: EvaluationReason(grade.pass_, grade.reason)}

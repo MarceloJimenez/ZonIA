@@ -1,10 +1,12 @@
 """The task under evaluation: play a scripted conversation against the real LLM."""
 
 import asyncio
+import os
 import time
 
 from pydantic import BaseModel
 from pydantic_ai.exceptions import ModelRateLimitError, ModelUnavailableError
+from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.models.wrapper import WrapperModel
 
 from zonia.config import GREETING
@@ -64,6 +66,10 @@ async def with_retries(make_call):
 
 MODEL = PacedModel(build_model())
 AGENT = build_agent(MODEL)
+
+# The judge is a larger model than Sonia's, and it thinks before it grades.
+JUDGE_MODEL = PacedModel(build_model(os.environ["ZONIA_JUDGE_MODEL"]))
+JUDGE_SETTINGS = OpenAIChatModelSettings(openai_reasoning_effort="high")
 
 
 async def converse(script: Script) -> Transcript:

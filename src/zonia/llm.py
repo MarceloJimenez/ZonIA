@@ -14,13 +14,13 @@ from zonia.prompt import SYSTEM
 load_dotenv(".env")
 
 
-def build_model() -> OpenAIChatModel:
-    """The chat model on the OpenAI-compatible endpoint set in .env."""
+def build_model(name: str | None = None) -> OpenAIChatModel:
+    """A chat model on the OpenAI-compatible endpoint set in .env. Default: ZONIA_MODEL."""
     provider = OpenAIProvider(
         base_url=os.environ["ZONIA_BASE_URL"],
         api_key=os.environ["ZONIA_API_KEY"],
     )
-    return OpenAIChatModel(os.environ["ZONIA_MODEL"], provider=provider)
+    return OpenAIChatModel(name or os.environ["ZONIA_MODEL"], provider=provider)
 
 
 def build_agent(model: Model) -> Agent[None, Turn]:

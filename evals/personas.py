@@ -20,7 +20,7 @@ os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
 from pydantic_ai import Agent  # noqa: E402
 
-from conversation import AGENT, MODEL, with_retries  # noqa: E402
+from conversation import AGENT, JUDGE_MODEL, JUDGE_SETTINGS, MODEL, with_retries  # noqa: E402
 from run import git_version  # noqa: E402
 from pydantic_evals.evaluators.llm_as_a_judge import judge_output  # noqa: E402
 
@@ -162,7 +162,7 @@ async def judge(lines: list[str]) -> dict[str, tuple[bool, str]]:
     text = "\n".join(lines)
     result = {}
     for name, rubric in RULES.items():
-        grade = await with_retries(lambda: judge_output(text, rubric, model=MODEL))
+        grade = await with_retries(lambda: judge_output(text, rubric, model=JUDGE_MODEL, model_settings=JUDGE_SETTINGS))
         result[name] = (grade.pass_, grade.reason)
     return result
 
@@ -176,6 +176,7 @@ def write_report(results: list[Result], started: datetime) -> Path:
         f"# Simulated candidates {started:%Y-%m-%d %H:%M}",
         "",
         f"- Model: `{os.environ.get('ZONIA_MODEL')}` (Sonia and the candidates)",
+        f"- Judge model: `{os.environ.get('ZONIA_JUDGE_MODEL')}` (high reasoning effort)",
         f"- Code: `{git_version()}`",
         "",
         "| Persona | Channel | Country | Candidate messages | Final status | Rules passed |",

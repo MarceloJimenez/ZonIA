@@ -29,12 +29,8 @@ from zonia.domain.flow import FINAL_STATUSES, decide
 from zonia.domain.models import Intent, ScreeningFields, Stage, Status, Turn, turn_model
 from zonia.domain.validation import validate
 from zonia.prompt import directive, invalid_directive, local_words, reply_language, turn_instructions
+from zonia.texts.replies import CONTACT_REPLY, FAILURE_REPLY, LIMIT_REPLY, REVIEW_REPLY
 from zonia.texts.summary import render_summary
-
-REVIEW_REPLY = {
-    "es": "Si quieres que una persona revise tu caso, escribe a {email} con el código {code}.",
-    "en": "If you want a person to review your case, write to {email} with the code {code}.",
-}
 
 
 class TurnResult(BaseModel):
@@ -131,26 +127,6 @@ logger = logging.getLogger(__name__)
 
 RETRY_DELAYS = [1, 2, 4]  # seconds to wait before each new try
 MAX_RETRY_WAIT = 30  # seconds; a longer Retry-After from the provider is cut to this
-
-# Fixed replies, per language. No LLM call made them, so they use the conversation's last language.
-FAILURE_REPLY = {
-    "es": "Perdona, he tenido un problema técnico. ¿Puedes repetir tu último mensaje?",
-    "en": "Sorry, I had a technical problem. Can you send your last message again?",
-}
-LIMIT_REPLY = {
-    "es": "Hemos llegado al límite de esta conversación. Si quieres seguir con tu candidatura, escribe a {email}.",
-    "en": "We have reached the limit of this conversation. If you want to continue your application, write to {email}.",
-}
-CONTACT_REPLY = {
-    "es": (
-        "Seguimos con un problema técnico. Escríbenos a {email} con tu nombre y tu teléfono, "
-        "y una persona del equipo seguirá con tu candidatura. También puedes intentarlo aquí más tarde."
-    ),
-    "en": (
-        "We still have a technical problem. Write to us at {email} with your name and phone number, "
-        "and a person from the team will continue your application. You can also try here again later."
-    ),
-}
 
 
 def is_transient(error: Exception) -> bool:

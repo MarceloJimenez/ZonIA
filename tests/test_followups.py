@@ -7,7 +7,9 @@ import pytest
 
 from test_turn import FakeLLM, make_agent
 from zonia.config import GREETING
-from zonia.followups import NO_REPLY_REMINDER, reminder_text, run_followups
+from zonia.config import NO_REPLY_REMINDER
+from zonia.followups import run_followups
+from zonia.texts.replies import reminder_text
 from zonia.domain.models import ScreeningFields, Stage, Status
 from zonia.storage import Storage
 from zonia.domain.conversation import Conversation, new_conversation

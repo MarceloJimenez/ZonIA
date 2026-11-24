@@ -16,13 +16,13 @@ from pydantic_ai.models.function import FunctionModel
 
 from test_turn import FakeLLM, make_agent
 from zonia.adapters import http
-from zonia.adapters.http import TEXT_ONLY_REPLY, WEBHOOK_PATH, create_app, e164
+from zonia.adapters.http import WEBHOOK_PATH, create_app, e164
 from zonia.config import GREETING
 from zonia.domain.models import Turn
 from zonia.prompt import SYSTEM
 from zonia.storage import Storage
 from zonia.domain.conversation import new_conversation
-from zonia.turn import FAILURE_REPLY
+from zonia.texts.replies import FAILURE_REPLY, TEXT_ONLY_REPLY
 
 SECRET = "test-app-secret"
 VERIFY = "test-verify-token"

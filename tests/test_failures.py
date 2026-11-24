@@ -11,7 +11,8 @@ from zonia.config import contact_email_for
 from zonia.domain.models import ScreeningFields, Status, Turn
 from zonia.prompt import SYSTEM
 from zonia.domain.conversation import Conversation
-from zonia.turn import FAILURE_REPLY, RETRY_DELAYS, run_turn_safely
+from zonia.texts.replies import FAILURE_REPLY
+from zonia.turn import RETRY_DELAYS, run_turn_safely
 
 
 class FailingLLM(FakeLLM):

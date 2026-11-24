@@ -14,7 +14,7 @@ from zonia.adapters import http
 from zonia.adapters.http import DEMO_PHONE, DEMO_PHONES, PHONE_ERROR, country_for, create_app
 from zonia.config import GREETING, JOB_FACTS, zones_for
 from zonia.storage import Storage
-from zonia.turn import FAILURE_REPLY
+from zonia.texts.replies import FAILURE_REPLY
 
 
 @pytest.fixture

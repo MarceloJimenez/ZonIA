@@ -37,6 +37,7 @@ from zonia.config import GREETING, JOB_FACTS, zones_for
 from zonia.llm import build_agent, build_model
 from zonia.domain.models import Turn
 from zonia.storage import Storage
+from zonia.texts.replies import TEXT_ONLY_REPLY
 from zonia.domain.conversation import new_conversation
 from zonia.turn import run_turn_safely
 
@@ -60,12 +61,7 @@ COUNTRY_NAMES = {"ES": "España", "MX": "México"}
 DEMO_PHONES = {"ES": "+34 123 456 789", "MX": "+52 55 1234 5678"}
 DEMO_PHONE = DEMO_PHONES["ES"]
 
-# A message with a photo, audio or other file and no text. Code writes the reply; no LLM call.
-# Other formats are in docs/Backlog.md.
-TEXT_ONLY_REPLY = {
-    "es": "Por ahora solo puedo leer mensajes de texto. ¿Me lo escribes?",
-    "en": "For now I can only read text messages. Could you write it?",
-}
+
 
 
 def signature_is_valid(app_secret: str, body: bytes, header: str) -> bool:

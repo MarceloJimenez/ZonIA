@@ -12,7 +12,8 @@ from zonia.domain.models import Stage, Status
 from zonia import storage as storage_module
 from zonia.storage import Storage
 from zonia.domain.conversation import Conversation, new_conversation
-from zonia.turn import FAILURE_REPLY, run_turn, run_turn_safely
+from zonia.texts.replies import FAILURE_REPLY
+from zonia.turn import run_turn, run_turn_safely
 
 
 @pytest.fixture

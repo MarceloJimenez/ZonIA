@@ -39,6 +39,12 @@ GREETING = [
     "Son unos 5 minutos. ¿Seguimos? Si es así, dime tu nombre completo.",
 ]
 
+# The candidate never answered the greeting. On WhatsApp this is a template approved by Meta, in Spanish like the greeting.
+NO_REPLY_REMINDER = (
+    "Hola de nuevo, soy Sonia, la asistente de IA de Grupo Sazón. "
+    "Te escribí por tu solicitud de repartidor. ¿Seguimos? Si es así, dime tu nombre completo."
+)
+
 
 # What Sonia may tell a candidate about the company and the job, one fact per line.
 # Only facts from the assignment (docs/ASSIGNMENT.md); the client adds more here.

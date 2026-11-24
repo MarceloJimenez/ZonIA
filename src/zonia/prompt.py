@@ -16,6 +16,8 @@ FIXED_RULES = [
     "confirma el dato nuevo.",
     "Para una mala noticia, como una descalificación, di \"lamentablemente\", no \"lo siento\".",
     "No prometas el puesto y no opines sobre el candidato.",
+    "Usa siempre el registro de tu personalidad, sin mezclar tú y usted. "
+    "Habla al candidato, nunca de él en tercera persona.",
 ]
 
 

@@ -60,7 +60,7 @@ Code checks are used for everything that can be measured exactly. The LLM judge 
 | `voice_lowercase` | A voice call in lowercase (Mexico) gives a summary with capitals in the name and the platform. |
 | `availability_specific_weekdays` | "Puedo martes miercoles y jueves" saves no availability. Sonia asks the candidate to choose full-time, part-time or weekends. |
 | `availability_other_weekdays` | The same with "puedo lunes miercoles y viernes". |
-| `past_start_date` | A date in the past is not saved. Sonia says it has passed and asks for a new one. |
+| `past_start_date` | A date in the past is not saved. Sonia says it has passed and asks for a new one, with tú only and not in the third person. |
 | `start_tomorrow` | "Mañana" becomes tomorrow's date, because the turn is told today's date. |
 | `start_date_without_year` | A day and month that already passed this year, without a year, becomes that day next year. |
 | `full_run_qualified` | Six messages, all fields extracted, summary by code, qualified. |

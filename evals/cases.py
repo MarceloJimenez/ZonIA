@@ -231,7 +231,8 @@ CASES = [
             Judge(
                 "asks for a new date",
                 "Sonia's last reply says that the date has already passed and asks for a new start date. "
-                "It does not show a summary.",
+                "It does not show a summary. It speaks to the candidate with tú only: it does not mix tú and "
+                "usted, and it does not talk about the candidate in the third person.",
             ),
         ),
     ),

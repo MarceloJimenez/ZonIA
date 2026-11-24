@@ -4,8 +4,8 @@ from datetime import date, timedelta
 
 import pytest
 
-from zonia.models import ScreeningFields
-from zonia.validation import validate
+from zonia.domain.models import ScreeningFields
+from zonia.domain.validation import validate
 
 TODAY = date(2026, 11, 22)
 

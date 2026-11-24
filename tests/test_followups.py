@@ -8,9 +8,10 @@ import pytest
 from test_turn import FakeLLM, make_agent
 from zonia.config import GREETING
 from zonia.followups import NO_REPLY_REMINDER, reminder_text, run_followups
-from zonia.models import ScreeningFields, Stage, Status
+from zonia.domain.models import ScreeningFields, Stage, Status
 from zonia.storage import Storage
-from zonia.turn import Conversation, new_conversation, run_turn_safely
+from zonia.domain.conversation import Conversation, new_conversation
+from zonia.turn import run_turn_safely
 
 START = datetime(2026, 11, 22, 9, 0, tzinfo=UTC)
 
@@ -46,7 +47,7 @@ def started(storage: Storage, llm_turn: dict | None = None, text: str = "Soy Ana
     conversation_id = storage.create(conversation, GREETING)
     fake = FakeLLM([llm_turn or {"fields": {"full_name": "Ana López"}}])
     turn = asyncio.run(run_turn_safely(make_agent(fake), conversation, text))
-    storage.save_turn(conversation_id, conversation, turn)
+    storage.save_turn(conversation_id, conversation, turn.message, turn.reply)
     return conversation_id
 
 
@@ -103,7 +104,7 @@ def test_a_candidate_message_starts_the_follow_ups_again(storage, clock):
     conversation = storage.load(conversation_id)
     fake = FakeLLM([{"fields": {"driver_license": True}}])
     turn = asyncio.run(run_turn_safely(make_agent(fake), conversation, "Sí, tengo carné"))
-    storage.save_turn(conversation_id, conversation, turn)  # at minute 30
+    storage.save_turn(conversation_id, conversation, turn.message, turn.reply)  # at minute 30
     assert storage.load(conversation_id).status == Status.ACTIVE
     assert steps(storage, clock, minutes=39) == []
     assert steps(storage, clock, minutes=40) == ["reminder"]

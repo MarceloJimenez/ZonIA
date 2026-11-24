@@ -35,9 +35,10 @@ from zonia import settings
 from zonia.adapters.whatsapp import MetaSender, Sender
 from zonia.config import GREETING, JOB_FACTS, zones_for
 from zonia.llm import build_agent, build_model
-from zonia.models import Turn
+from zonia.domain.models import Turn
 from zonia.storage import Storage
-from zonia.turn import new_conversation, run_turn_safely
+from zonia.domain.conversation import new_conversation
+from zonia.turn import run_turn_safely
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +185,7 @@ def create_app(
                     raise HTTPException(status_code=404)
                 conversation = storage.load(conversation_id)
                 turn = await run_turn_safely(agent, conversation, text, time_limit=CHAT_TIME_LIMIT)
-                storage.save_turn(conversation_id, conversation, turn)
+                storage.save_turn(conversation_id, conversation, turn.message, turn.reply)
         log_turn("web", case_code, text, turn.reply, started)
         return {"reply": turn.reply}
 
@@ -231,7 +232,7 @@ def create_app(
                     raise HTTPException(status_code=404)
                 conversation = storage.load(conversation_id)
                 turn = await run_turn_safely(agent, conversation, text, time_limit=VOICE_TIME_LIMIT)
-                storage.save_turn(conversation_id, conversation, turn)
+                storage.save_turn(conversation_id, conversation, turn.message, turn.reply)
             voice_replies[case_code] = (request_key, turn.reply)
         log_turn("voice", case_code, text, turn.reply, started)
         return StreamingResponse(voice_stream(turn.reply), media_type="text/event-stream")
@@ -252,7 +253,7 @@ def create_app(
                         await send(phone, TEXT_ONLY_REPLY[conversation.language])
                     return
                 turn = await run_turn_safely(agent, conversation, text, time_limit=CHAT_TIME_LIMIT)
-                storage.save_turn(conversation_id, conversation, turn, external_id=message_id)
+                storage.save_turn(conversation_id, conversation, turn.message, turn.reply, external_id=message_id)
         log_turn("whatsapp", phone, text, turn.reply, started)
         await send(phone, turn.reply)
 

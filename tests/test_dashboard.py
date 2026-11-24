@@ -7,16 +7,9 @@ from fastapi.testclient import TestClient
 
 from test_turn import COMPLETE
 from zonia.dashboard import create_app, experience, field_rows, initials, service_zone, waiting
-from zonia.models import RecruiterOutcome, ScreeningFields, Stage, Status
+from zonia.domain.models import RecruiterOutcome, ScreeningFields, Stage, Status
 from zonia.storage import Storage
-from zonia.turn import Conversation, TurnResult
-
-
-def turn(message: str, reply: str) -> TurnResult:
-    return TurnResult(
-        message=message, reply=reply, intent="none", stage=Stage.DATA_COLLECTION,
-        status=Status.ACTIVE, language="es", llm_calls=1, reply_source="call_1",
-    )
+from zonia.domain.conversation import Conversation
 
 
 @pytest.fixture
@@ -34,8 +27,8 @@ def db(tmp_path):
         case_code="K7PX-3QMD",
     ))
     qualified = storage.load(qualified_id)
-    storage.save_turn(qualified_id, qualified, turn("Soy Ana López", "¿Tienes carnet?"))
-    storage.save_turn(qualified_id, qualified, turn("Sí, <b>tengo</b>", "Perfecto."))
+    storage.save_turn(qualified_id, qualified, "Soy Ana López", "¿Tienes carnet?")
+    storage.save_turn(qualified_id, qualified, "Sí, <b>tengo</b>", "Perfecto.")
     storage.close()
     return path
 

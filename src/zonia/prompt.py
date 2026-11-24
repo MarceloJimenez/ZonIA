@@ -1,10 +1,11 @@
 """Text sent to the LLM: the system prompt, the per-turn instructions and the directives for call 2."""
 
 from zonia.config import JOB_FACTS, PERSONALITY, local_words_for
-from zonia.flow import AVAILABILITY_ES, FIELD_ORDER, MONTHS_ES, SCHEDULE_ES, open_fields
+from zonia.domain.flow import FIELD_ORDER, open_fields
+from zonia.texts.summary import AVAILABILITY_ES, MONTHS_ES, SCHEDULE_ES
 from datetime import date
 
-from zonia.models import ScreeningFields, Status
+from zonia.domain.models import ScreeningFields, Status
 
 # Same for every client. Design: docs/plans/Process design draft.md, section 2.
 FIXED_RULES = [

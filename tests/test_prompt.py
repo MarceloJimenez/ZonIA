@@ -5,7 +5,7 @@ from datetime import date
 from test_turn import COMPLETE
 from zonia.config import JOB_FACTS, PERSONALITY
 from zonia.prompt import CLOSING_RULES, DIRECTIVES, FIXED_RULES, SYSTEM, ZONE_DIRECTIVE, build_system, directive, invalid_directive, turn_instructions
-from zonia.models import ScreeningFields, Status
+from zonia.domain.models import ScreeningFields, Status
 
 TODAY = date(2026, 11, 22)
 

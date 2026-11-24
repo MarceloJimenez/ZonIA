@@ -8,8 +8,8 @@ from datetime import date, timedelta
 
 import pytest
 
-from zonia.flow import decide
-from zonia.models import OUTSIDE_ZONE, Intent, ScreeningFields, Stage, Status
+from zonia.domain.flow import decide
+from zonia.domain.models import OUTSIDE_ZONE, Intent, ScreeningFields, Stage, Status
 
 COMPLETE_NO_EXPERIENCE = ScreeningFields(
     full_name="Ana López",

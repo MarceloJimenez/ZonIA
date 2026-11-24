@@ -15,10 +15,11 @@ from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from zonia.config import GREETING, contact_email_for
-from zonia.flow import render_summary
-from zonia.models import ScreeningFields, Stage, Status, Turn
+from zonia.texts.summary import render_summary
+from zonia.domain.models import ScreeningFields, Stage, Status, Turn
 from zonia.prompt import DIRECTIVES, SYSTEM, ZONE_DIRECTIVE, directive, turn_instructions
-from zonia.turn import CASE_CODE_ALPHABET, Conversation, new_case_code, new_conversation, run_turn
+from zonia.domain.conversation import CASE_CODE_ALPHABET, Conversation, new_case_code, new_conversation
+from zonia.turn import run_turn
 
 CALL_1_REPLY = "CALL-1 REPLY"
 CALL_2_REPLY = "CALL-2 REPLY"
@@ -334,7 +335,16 @@ def test_a_new_conversation_starts_with_the_greeting_and_turn_1_keeps_it():
     assert conversation.stage == Stage.DATA_COLLECTION
 
 
-NO_LICENCE = {"fields": {"full_name": "Luis", "driver_license": False}}
+def test_add_agent_message_puts_sonias_text_at_the_end_of_the_history():
+    conversation = new_conversation()
+    conversation.add_agent_message("¿Sigues ahí?")
+    assert len(conversation.history) == 2
+    last = conversation.history[-1]
+    assert isinstance(last, ModelResponse)
+    assert last.parts == [TextPart(content="¿Sigues ahí?")]
+
+
+NO_LICENCE ={"fields": {"full_name": "Luis", "driver_license": False}}
 
 
 def test_a_disqualification_gives_the_review_email_and_a_case_code():

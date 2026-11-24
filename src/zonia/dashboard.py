@@ -16,8 +16,8 @@ from fastapi.templating import Jinja2Templates
 
 from zonia import settings
 from zonia.config import SERVICE_ZONES
-from zonia.flow import render_summary
-from zonia.models import OUTSIDE_ZONE, RecruiterOutcome, ScreeningFields, Stage, Status
+from zonia.texts.summary import render_summary
+from zonia.domain.models import OUTSIDE_ZONE, RecruiterOutcome, ScreeningFields, Stage, Status
 from zonia.storage import ConversationRow, Storage
 
 HERE = Path(__file__).parent

@@ -16,8 +16,8 @@ from pathlib import Path
 
 from pydantic_ai.messages import ModelMessagesTypeAdapter
 
-from zonia.models import RecruiterOutcome, ScreeningFields, Stage, Status
-from zonia.turn import Conversation, TurnResult, new_case_code
+from zonia.domain.conversation import Conversation, new_case_code
+from zonia.domain.models import RecruiterOutcome, ScreeningFields, Stage, Status
 
 # The newest outcome the recruiter set for the conversation (c is the conversations row).
 LATEST_OUTCOME = (
@@ -163,10 +163,11 @@ class Storage:
         )
 
     def save_turn(
-        self, conversation_id: int, conversation: Conversation, turn: TurnResult, external_id: str | None = None
+        self, conversation_id: int, conversation: Conversation, message: str, reply: str, external_id: str | None = None
     ) -> None:
         """Save the conversation after one turn, and the turn's two messages.
 
+        message is what the candidate wrote; reply is what Sonia answered.
         external_id is the channel's id for the candidate's message (the WhatsApp message id).
 
         One transaction: either everything is saved, or nothing is. Sonia has just replied,
@@ -185,8 +186,8 @@ class Storage:
             self.db.executemany(
                 "INSERT INTO messages (conversation_id, role, text, external_id, created_at) VALUES (?, ?, ?, ?, ?)",
                 [
-                    (conversation_id, "candidate", turn.message, external_id, now),
-                    (conversation_id, "agent", turn.reply, None, now),
+                    (conversation_id, "candidate", message, external_id, now),
+                    (conversation_id, "agent", reply, None, now),
                 ],
             )
 

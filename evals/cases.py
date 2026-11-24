@@ -9,8 +9,8 @@ from pydantic_evals import Case, Dataset
 
 from conversation import Script, Transcript
 from evaluators import FieldsExtracted, FinalState, IntentAt, Judge, LanguageAt, LlmCalls, StatusAt, SummaryAt
-from zonia.flow import MONTHS_ES
-from zonia.models import Intent, Stage, Status
+from zonia.texts.summary import MONTHS_ES
+from zonia.domain.models import Intent, Stage, Status
 
 NO_REPEATED_QUESTION = Judge(
     "no repeated question",

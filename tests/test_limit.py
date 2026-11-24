@@ -3,8 +3,8 @@
 from test_failures import FailingLLM, http, run
 from test_turn import COMPLETE
 from zonia.config import MAX_TURNS, contact_email_for
-from zonia.models import Stage, Status
-from zonia.turn import Conversation
+from zonia.domain.models import Stage, Status
+from zonia.domain.conversation import Conversation
 
 
 def test_the_messages_before_the_limit_run_as_usual():

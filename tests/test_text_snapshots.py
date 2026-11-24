@@ -13,12 +13,13 @@ from pathlib import Path
 import pytest
 
 from zonia.config import GREETING, contact_email_for
-from zonia.flow import render_summary
+from zonia.texts.summary import render_summary
 from zonia.followups import reminder_text
-from zonia.models import ScreeningFields, Status, turn_model
+from zonia.domain.models import ScreeningFields, Status, turn_model
 from zonia.prompt import SYSTEM, directive, invalid_directive, reply_language, turn_instructions
-from zonia.turn import CONTACT_REPLY, FAILURE_REPLY, LIMIT_REPLY, REVIEW_REPLY, Conversation
-from zonia.validation import validate
+from zonia.domain.conversation import Conversation
+from zonia.turn import CONTACT_REPLY, FAILURE_REPLY, LIMIT_REPLY, REVIEW_REPLY
+from zonia.domain.validation import validate
 
 SNAPSHOTS = Path(__file__).parent / "text_snapshots"
 TODAY = date(2026, 11, 24)

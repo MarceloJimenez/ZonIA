@@ -8,10 +8,11 @@ import pytest
 from test_failures import FailingLLM, http
 from test_turn import COMPLETE, FakeLLM, make_agent
 from zonia.config import GREETING
-from zonia.models import Stage, Status
+from zonia.domain.models import Stage, Status
 from zonia import storage as storage_module
 from zonia.storage import Storage
-from zonia.turn import FAILURE_REPLY, Conversation, new_conversation, run_turn, run_turn_safely
+from zonia.domain.conversation import Conversation, new_conversation
+from zonia.turn import FAILURE_REPLY, run_turn, run_turn_safely
 
 
 @pytest.fixture
@@ -34,7 +35,7 @@ def test_after_a_turn_the_saved_conversation_has_the_new_state_and_history(stora
     conversation = Conversation()
     conversation_id = storage.create(conversation)
     turn = asyncio.run(run_turn(make_agent(fake), conversation, "Soy Ana López"))
-    storage.save_turn(conversation_id, conversation, turn)
+    storage.save_turn(conversation_id, conversation, turn.message, turn.reply)
 
     loaded = storage.load(conversation_id)
     assert loaded == conversation
@@ -47,11 +48,13 @@ def test_a_loaded_conversation_continues_without_asking_again(storage):
     agent = make_agent(fake)
     first = Conversation()
     conversation_id = storage.create(first)
-    storage.save_turn(conversation_id, first, asyncio.run(run_turn(agent, first, "Soy Ana López")))
+    turn = asyncio.run(run_turn(agent, first, "Soy Ana López"))
+    storage.save_turn(conversation_id, first, turn.message, turn.reply)
 
     # A new process: only the database is left.
     second = storage.load(conversation_id)
-    storage.save_turn(conversation_id, second, asyncio.run(run_turn(agent, second, "Sí, tengo carnet")))
+    turn = asyncio.run(run_turn(agent, second, "Sí, tengo carnet"))
+    storage.save_turn(conversation_id, second, turn.message, turn.reply)
 
     loaded = storage.load(conversation_id)
     assert (loaded.fields.full_name, loaded.fields.driver_license) == ("Ana López", True)
@@ -68,7 +71,8 @@ def test_messages_are_kept_in_order(storage):
     conversation = Conversation()
     conversation_id = storage.create(conversation)
     for text in ["Soy Ana López", "Sí, tengo carnet"]:
-        storage.save_turn(conversation_id, conversation, asyncio.run(run_turn(agent, conversation, text)))
+        turn = asyncio.run(run_turn(agent, conversation, text))
+        storage.save_turn(conversation_id, conversation, turn.message, turn.reply)
 
     assert storage.messages(conversation_id) == [
         ("candidate", "Soy Ana López"),
@@ -82,7 +86,7 @@ def test_a_failed_turn_keeps_the_candidate_message_and_the_failure_count(storage
     conversation = Conversation()
     conversation_id = storage.create(conversation)
     turn = asyncio.run(run_turn_safely(make_agent(FailingLLM([http(400)])), conversation, "Soy Ana López"))
-    storage.save_turn(conversation_id, conversation, turn)
+    storage.save_turn(conversation_id, conversation, turn.message, turn.reply)
 
     assert storage.messages(conversation_id) == [("candidate", "Soy Ana López"), ("agent", FAILURE_REPLY["es"])]
     assert storage.load(conversation_id).failed_turns == 1

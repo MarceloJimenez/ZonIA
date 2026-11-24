@@ -4,8 +4,8 @@ from datetime import date
 
 import pytest
 
-from zonia.flow import render_summary
-from zonia.models import ScreeningFields
+from zonia.texts.summary import render_summary
+from zonia.domain.models import ScreeningFields
 
 ANA = ScreeningFields(
     full_name="Ana López",

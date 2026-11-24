@@ -22,8 +22,8 @@ settings.load()
 
 from cases import ANA, ANA_START, CASES  # noqa: E402
 from conversation import Script, Transcript, converse  # noqa: E402
-from zonia.flow import render_summary  # noqa: E402
-from zonia.models import Stage  # noqa: E402
+from zonia.texts.summary import render_summary  # noqa: E402
+from zonia.domain.models import Stage  # noqa: E402
 
 OUT = Path(__file__).parent.parent / "deliverables" / "sample-conversations"
 

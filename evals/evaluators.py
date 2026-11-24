@@ -12,7 +12,7 @@ from pydantic_evals.evaluators import EvaluationReason, Evaluator, EvaluatorCont
 from pydantic_evals.evaluators.llm_as_a_judge import judge_output
 
 from conversation import JUDGE_MODEL, JUDGE_SETTINGS, Script, Transcript, with_retries
-from zonia.models import Intent, Stage, Status
+from zonia.domain.models import Intent, Stage, Status
 
 Ctx = EvaluatorContext[Script, Transcript, None]
 

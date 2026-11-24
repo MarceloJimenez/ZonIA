@@ -2,7 +2,7 @@
 
 1. Call 1: the LLM returns the fields, the intent and a reply.
 2. Code merges the fields and decides the new stage and status.
-3. Code checks the new values (zonia.validation). An invalid value is not saved.
+3. Code checks the new values (zonia.domain.validation). An invalid value is not saved.
 4. If the status changed and a directive exists, or a value was not valid: call 2 writes the reply again.
    If the conversation enters closing, a value changes in closing, or a closed conversation
    reopens in closing: code writes the summary and no extra call is made.
@@ -14,61 +14,27 @@ and the fixed texts written by code use it.
 
 import asyncio
 import logging
-import secrets
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field, replace
+from dataclasses import replace
 from datetime import date
 
 from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.exceptions import ModelAPIError, ModelHTTPError
-from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, UserPromptPart
+from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
 
-from zonia.config import GREETING, MAX_TURNS, contact_email_for
-from zonia.flow import FINAL_STATUSES, decide, render_summary
-from zonia.models import Intent, ScreeningFields, Stage, Status, Turn, turn_model
+from zonia.config import MAX_TURNS, contact_email_for
+from zonia.domain.conversation import Conversation, new_case_code
+from zonia.domain.flow import FINAL_STATUSES, decide
+from zonia.domain.models import Intent, ScreeningFields, Stage, Status, Turn, turn_model
+from zonia.domain.validation import validate
 from zonia.prompt import directive, invalid_directive, local_words, reply_language, turn_instructions
-from zonia.validation import validate
-
-
-@dataclass
-class Conversation:
-    """Everything the code keeps between turns."""
-
-    history: list[ModelMessage] = field(default_factory=list)
-    fields: ScreeningFields = field(default_factory=ScreeningFields)
-    stage: Stage = Stage.INTRODUCTION
-    status: Status = Status.ACTIVE
-    country: str = "ES"  # "ES" or "MX"; decides the service zones
-    failed_turns: int = 0  # turns in a row that ended in a technical failure
-    case_code: str | None = None  # storage gives it; the candidate gets it on disqualification
-    turns: int = 0  # candidate messages so far, failed turns included
-    language: str = "es"  # "es" or "en": the language of the candidate's last message
-    followup_step: int = 0  # follow-up steps done since the candidate's last message (zonia.followups)
-
+from zonia.texts.summary import render_summary
 
 REVIEW_REPLY = {
     "es": "Si quieres que una persona revise tu caso, escribe a {email} con el código {code}.",
     "en": "If you want a person to review your case, write to {email} with the code {code}.",
 }
-
-# No 0/O and no 1/I: a candidate types the code into an email. 32^8 is more than a trillion codes.
-CASE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-
-
-def new_case_code() -> str:
-    """A random case code that cannot be guessed, like "K7PX-3QMD"."""
-    chars = "".join(secrets.choice(CASE_CODE_ALPHABET) for _ in range(8))
-    return f"{chars[:4]}-{chars[4:]}"
-
-
-def new_conversation(country: str = "ES") -> Conversation:
-    """A conversation that starts with Sonia's greeting.
-
-    The greeting is in the history, so on turn 1 the LLM knows what Sonia asked.
-    """
-    greeting = ModelResponse(parts=[TextPart(content="\n".join(GREETING))])
-    return Conversation(history=[greeting], country=country)
 
 
 class TurnResult(BaseModel):

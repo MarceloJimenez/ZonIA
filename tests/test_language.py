@@ -9,10 +9,11 @@ from datetime import date
 from test_failures import FailingLLM, http, run
 from test_turn import COMPLETE, NO_LICENCE, FakeLLM, make_agent
 from zonia.config import MAX_TURNS, contact_email_for
-from zonia.flow import render_summary
-from zonia.models import ScreeningFields, Stage
+from zonia.texts.summary import render_summary
+from zonia.domain.models import ScreeningFields, Stage
 from zonia.prompt import turn_instructions
-from zonia.turn import CONTACT_REPLY, FAILURE_REPLY, LIMIT_REPLY, Conversation, run_turn
+from zonia.domain.conversation import Conversation
+from zonia.turn import CONTACT_REPLY, FAILURE_REPLY, LIMIT_REPLY, run_turn
 
 ANA = ScreeningFields(
     full_name="Ana López",

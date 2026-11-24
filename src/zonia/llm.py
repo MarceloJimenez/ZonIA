@@ -7,7 +7,7 @@ from pydantic_ai.models import Model
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from zonia.models import Turn
+from zonia.domain.models import Turn
 from zonia.prompt import SYSTEM
 
 

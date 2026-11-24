@@ -13,7 +13,8 @@ from zonia import settings
 from zonia.config import GREETING
 from zonia.llm import build_agent, build_model
 from zonia.storage import Storage
-from zonia.turn import new_conversation, run_turn_safely
+from zonia.domain.conversation import new_conversation
+from zonia.turn import run_turn_safely
 
 
 def main() -> None:
@@ -44,7 +45,7 @@ def main() -> None:
                 break
             turn = asyncio.run(run_turn_safely(agent, conversation, text))
             # A failed turn is saved too: the recruiter sees the candidate's message.
-            storage.save_turn(conversation_id, conversation, turn)
+            storage.save_turn(conversation_id, conversation, turn.message, turn.reply)
             print(turn.reply)
             print(conversation.fields)
             print(f"intent={turn.intent} stage={turn.stage} status={turn.status} calls={turn.llm_calls}")

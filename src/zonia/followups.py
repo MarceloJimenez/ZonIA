@@ -12,14 +12,12 @@ run for a while, an old reminder is not sent late.
 from dataclasses import dataclass
 from datetime import datetime
 
-from pydantic_ai.messages import ModelResponse, TextPart
-
 from zonia import settings
 from zonia.config import FOLLOW_UPS, FOLLOW_UPS_NO_REPLY, local_words_for
-from zonia.flow import open_fields
-from zonia.models import Status
+from zonia.domain.flow import open_fields
+from zonia.domain.models import Status
 from zonia.storage import Storage
-from zonia.turn import Conversation
+from zonia.domain.conversation import Conversation
 
 # What is missing, as the reminder says it. {license} and {area} are the country's words.
 NEXT_ES = {
@@ -123,7 +121,7 @@ def run_followups(storage: Storage, now: datetime) -> list[FollowUp]:
         reminder = None
         if step == "reminder":
             reminder = reminder_text(c)
-            c.history = [*c.history, ModelResponse(parts=[TextPart(content=reminder)])]
+            c.add_agent_message(reminder)
         elif step == "pause":
             c.status = Status.PAUSED
         elif step == "incomplete":

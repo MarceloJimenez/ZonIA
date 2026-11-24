@@ -7,7 +7,7 @@ Rules: docs/plans/Process design draft.md, section 3.
 
 from datetime import date
 
-from zonia.models import ScreeningFields
+from zonia.domain.models import ScreeningFields
 
 # No person can reach it (driving from 18 would mean being over 108), so it treats no one worse
 # for their age. It catches misread numbers: "desde 2015" read as 2015 years.

@@ -19,7 +19,7 @@ dependencies = [
 
 [project.scripts]
 zonia = "zonia.cli:main"
-zonia-dashboard = "zonia.dashboard:main"
+zonia-dashboard = "zonia.dashboard.app:main"
 zonia-followups = "zonia.followups:main"
 zonia-server = "zonia.adapters.app:main"
 

@@ -70,7 +70,7 @@ Meta delivers messages only after the business is verified. Until then, the web 
  Voice ────┘                                                   │
  Terminal (src/zonia/cli.py) ───────────────────────────────────┤
                                                                └──> SQLite (src/zonia/storage.py)
- Recruiter dashboard (src/zonia/dashboard.py) ──> SQLite
+ Recruiter dashboard (src/zonia/dashboard/) ──> SQLite
 ```
 
 - **One core, many channels.** Each channel has an adapter. The adapter gives the candidate's text to the core and sends the reply back on the same channel. The core does not know the channel.

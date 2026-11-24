@@ -6,7 +6,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from test_turn import COMPLETE
-from zonia.dashboard import create_app, experience, field_rows, initials, service_zone, waiting
+from zonia.dashboard.app import create_app
+from zonia.dashboard.rows import experience, field_rows, initials, service_zone, waiting
 from zonia.domain.models import RecruiterOutcome, ScreeningFields, Stage, Status
 from zonia.storage import Storage
 from zonia.domain.conversation import Conversation

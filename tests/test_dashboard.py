@@ -1,10 +1,12 @@
 """Recruiter dashboard: the pages show what the database holds."""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from fastapi.testclient import TestClient
 
 from test_turn import COMPLETE
-from zonia.dashboard import create_app, field_rows
+from zonia.dashboard import create_app, experience, field_rows, service_zone, waiting
 from zonia.models import ScreeningFields, Stage, Status
 from zonia.storage import Storage
 from zonia.turn import Conversation, TurnResult
@@ -102,6 +104,47 @@ def test_the_list_shows_the_phone_as_a_call_link(client):
 def test_the_detail_has_a_call_button_only_when_there_is_a_phone(client):
     assert 'href="tel:+34600111222">Call +34600111222</a>' in client.get("/conversations/2").text
     assert "tel:" not in client.get("/conversations/1").text
+
+
+def test_the_list_shows_the_columns_the_recruiter_decides_with(client):
+    html = client.get("/").text
+    for header in ["Zone", "Availability", "Schedule", "Experience", "Start date", "Waiting"]:
+        assert f"<th>{header}</th>" in html
+    for gone in ["Country", "Stage", "Started", "Last message"]:
+        assert f"<th>{gone}</th>" not in html
+    assert "<td>Comunidad de Madrid</td>" in html  # Ana López's service zone, without "Chamberí"
+
+
+def test_the_zone_column_shows_the_service_zone_only():
+    assert service_zone(ScreeningFields(city_zone="Chamberí", service_zone="Comunidad de Madrid")) == "Comunidad de Madrid"
+    assert service_zone(ScreeningFields(city_zone="Lima", service_zone="outside")) == "Outside zones"
+    assert service_zone(ScreeningFields()) == "—"
+
+
+def test_experience_shows_the_platform_only_with_years():
+    assert experience(ScreeningFields(experience_years=2, experience_platform="Glovo")) == "2 years, Glovo"
+    assert experience(ScreeningFields(experience_years=0)) == "0 years"
+    assert experience(ScreeningFields()) == "—"
+
+
+@pytest.mark.parametrize(
+    ("gap", "shown"),
+    [(timedelta(seconds=30), "0 min"), (timedelta(minutes=59), "59 min"), (timedelta(hours=3, minutes=50), "3 h"),
+     (timedelta(days=2, hours=23), "2 d")],
+)
+def test_waiting_is_rounded_down(gap, shown):
+    now = datetime(2026, 11, 24, 12, 0, tzinfo=UTC)
+    assert waiting(now - gap, now) == shown
+
+
+def test_the_waiting_column_counts_from_the_last_turn(tmp_path):
+    saved = datetime(2026, 11, 24, 9, 0, tzinfo=UTC)
+    path = tmp_path / "zonia.db"
+    storage = Storage(path, clock=lambda: saved)
+    storage.create(Conversation(fields=ScreeningFields(full_name="Rosa Díaz")))
+    storage.close()
+    client = TestClient(create_app(path, clock=lambda: saved + timedelta(hours=5)))
+    assert '<td class="soft nowrap">5 h</td>' in client.get("/").text
 
 
 def test_an_unknown_id_gives_404(client):

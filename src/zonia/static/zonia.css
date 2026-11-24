@@ -43,6 +43,7 @@ td.name a { text-decoration: none; }
 td.phone { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .page-head .call { align-self: flex-start; }
 td.soft { color: var(--ink-2); }
+td.nowrap { white-space: nowrap; }
 tbody tr:hover { background: var(--surface-tint); }
 
 /* Button */

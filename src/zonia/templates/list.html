@@ -22,7 +22,7 @@
 <table>
 <thead>
 <tr>
-<th>Name</th><th>Phone</th><th>Country</th><th>Status</th><th>Stage</th><th>Zone</th><th>Started</th><th>Last message</th>
+<th>Name</th><th>Phone</th><th>Zone</th><th>Availability</th><th>Schedule</th><th>Experience</th><th>Start date</th><th>Status</th><th>Waiting</th>
 </tr>
 </thead>
 <tbody>
@@ -30,12 +30,13 @@
 <tr>
 <td class="name"><a href="/conversations/{{ r.id }}">{{ r.name }}</a></td>
 <td class="phone">{% if r.phone %}<a href="tel:{{ r.phone }}">{{ r.phone }}</a>{% else %}—{% endif %}</td>
-<td><span class="zn-tag zn-tag--code">{{ r.country }}</span></td>
+<td>{{ r.service_zone }}</td>
+<td>{{ r.availability }}</td>
+<td>{{ r.schedule }}</td>
+<td>{{ r.experience }}</td>
+<td class="soft nowrap">{{ r.start_date }}</td>
 <td><span class="zn-tag{{ ' zn-tag--ok' if r.qualified }}{{ ' zn-tag--alert' if r.technical_error }}">{{ r.status }}</span></td>
-<td class="soft">{{ r.stage }}</td>
-<td>{{ r.zone }}</td>
-<td class="soft">{{ r.started }}</td>
-<td class="soft">{{ r.last }}</td>
+<td class="soft nowrap">{{ r.waiting }}</td>
 </tr>
 {% endfor %}
 </tbody>

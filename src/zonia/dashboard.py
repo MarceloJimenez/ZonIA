@@ -5,8 +5,9 @@ Read-only. It reads the same SQLite file as Sonia (ZONIA_DB, or zonia.db).
 """
 
 import os
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Callable
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -43,25 +44,61 @@ def zone(fields: ScreeningFields) -> str:
     return f"{fields.city_zone} (zone: {fields.service_zone})"
 
 
+def availability(fields: ScreeningFields) -> str:
+    return EMPTY if fields.availability is None else ", ".join(AVAILABILITY_EN[a] for a in fields.availability)
+
+
+def schedule(fields: ScreeningFields) -> str:
+    return EMPTY if fields.schedule is None else ", ".join(SCHEDULE_EN[s] for s in fields.schedule)
+
+
+def experience(fields: ScreeningFields) -> str:
+    """Years and platform, for example "2 years, Glovo"."""
+    years = fields.experience_years
+    if years is None:
+        return EMPTY
+    text = f"{years:g} {'year' if years == 1 else 'years'}"
+    if years and fields.experience_platform:
+        text += f", {fields.experience_platform}"
+    return text
+
+
+def start_date(fields: ScreeningFields) -> str:
+    return EMPTY if fields.start_date is None else fields.start_date.strftime("%d %b %Y")
+
+
+def service_zone(fields: ScreeningFields) -> str:
+    """The service zone alone, for the list column. The candidate's own words are on the detail page."""
+    if fields.service_zone is None:
+        return EMPTY
+    return "Outside zones" if fields.service_zone == OUTSIDE_ZONE else fields.service_zone
+
+
+def waiting(since: datetime, now: datetime) -> str:
+    """Time since the last activity, rounded down: "12 min", "3 h", "2 d"."""
+    gap = max(now - since, timedelta(0))
+    if gap < timedelta(hours=1):
+        return f"{gap // timedelta(minutes=1)} min"
+    if gap < timedelta(days=1):
+        return f"{gap // timedelta(hours=1)} h"
+    return f"{gap.days} d"
+
+
 def field_rows(fields: ScreeningFields) -> list[tuple[str, str]]:
     """(label, value) for each screening field. An empty field shows EMPTY."""
-
-    def show(value, render=str) -> str:
-        return EMPTY if value is None else render(value)
-
-    licence = show(fields.driver_license, lambda v: "Yes" if v else "No")
+    licence = EMPTY if fields.driver_license is None else ("Yes" if fields.driver_license else "No")
     if fields.driver_license and fields.license_type:
         licence += f" ({fields.license_type})"
-    experience = show(fields.experience_years, lambda y: f"{y:g} {'year' if y == 1 else 'years'}")
+    years = fields.experience_years
     return [
-        ("Full name", show(fields.full_name)),
+        ("Full name", fields.full_name or EMPTY),
         ("Driver's licence", licence),
         ("City or zone", zone(fields)),
-        ("Availability", show(fields.availability, lambda v: ", ".join(AVAILABILITY_EN[a] for a in v))),
-        ("Schedule", show(fields.schedule, lambda v: ", ".join(SCHEDULE_EN[s] for s in v))),
-        ("Experience", experience),
-        ("Platform", show(fields.experience_platform)),
-        ("Start date", show(fields.start_date, lambda d: d.strftime("%d %b %Y"))),
+        ("Availability", availability(fields)),
+        ("Schedule", schedule(fields)),
+        ("Experience", EMPTY if years is None else f"{years:g} {'year' if years == 1 else 'years'}"),
+        ("Platform", fields.experience_platform or EMPTY),
+        ("Start date", start_date(fields)),
     ]
 
 
@@ -70,7 +107,7 @@ def status_label(status: Status) -> str:
     return status.value.replace("_", " ").capitalize()
 
 
-def list_row(c: ConversationRow) -> dict:
+def list_row(c: ConversationRow, now: datetime) -> dict:
     return {
         "id": c.id,
         "name": c.fields.full_name or f"Conversation {c.id}",
@@ -84,10 +121,21 @@ def list_row(c: ConversationRow) -> dict:
         "last": when(c.updated_at),
         "case_code": c.case_code,
         "phone": c.phone,
+        "service_zone": service_zone(c.fields),
+        "availability": availability(c.fields),
+        "schedule": schedule(c.fields),
+        "experience": experience(c.fields),
+        "start_date": start_date(c.fields),
+        "waiting": waiting(c.updated_at, now),
     }
 
 
-def create_app(db_path: str | Path) -> FastAPI:
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) -> FastAPI:
+    """clock gives the current time, for the Waiting column; tests pass a fake one."""
     app = FastAPI(title="ZonIA recruiter dashboard")
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     templates = Jinja2Templates(directory=HERE / "templates")
@@ -109,7 +157,7 @@ def create_app(db_path: str | Path) -> FastAPI:
         return templates.TemplateResponse(
             request,
             "list.html",
-            {"rows": [list_row(c) for c in shown], "total": len(every), "filters": filters, "status": status},
+            {"rows": [list_row(c, clock()) for c in shown], "total": len(every), "filters": filters, "status": status},
         )
 
     @app.get("/conversations/{conversation_id}", response_class=HTMLResponse)
@@ -126,7 +174,7 @@ def create_app(db_path: str | Path) -> FastAPI:
             request,
             "detail.html",
             {
-                "row": list_row(c),
+                "row": list_row(c, clock()),
                 "fields": field_rows(c.fields),
                 # The summary is shown once the candidate reaches closing.
                 "summary": render_summary(c.fields, country=c.country) if c.stage == Stage.CLOSING else None,

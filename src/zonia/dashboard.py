@@ -16,16 +16,14 @@ from fastapi.templating import Jinja2Templates
 
 from zonia import settings
 from zonia.config import SERVICE_ZONES
-from zonia.texts.summary import render_summary
 from zonia.domain.models import OUTSIDE_ZONE, RecruiterOutcome, ScreeningFields, Stage, Status
 from zonia.storage import ConversationRow, Storage
+from zonia.texts.labels import AVAILABILITY, SCHEDULE
+from zonia.texts.summary import render_summary
 
 HERE = Path(__file__).parent
 
 STAGE_LABELS = {Stage.INTRODUCTION: "Introduction", Stage.DATA_COLLECTION: "Data collection", Stage.CLOSING: "Closing"}
-
-AVAILABILITY_EN = {"full-time": "Full-time", "part-time": "Part-time", "weekends": "Weekends"}
-SCHEDULE_EN = {"morning": "Morning", "afternoon": "Afternoon", "evening": "Evening", "flexible": "Flexible"}
 
 OUTCOME_LABELS = {
     RecruiterOutcome.CALLED: "Called",
@@ -74,11 +72,11 @@ def zone(fields: ScreeningFields) -> str:
 
 
 def availability(fields: ScreeningFields) -> str:
-    return EMPTY if fields.availability is None else ", ".join(AVAILABILITY_EN[a] for a in fields.availability)
+    return EMPTY if fields.availability is None else ", ".join(AVAILABILITY["en"][a] for a in fields.availability)
 
 
 def schedule(fields: ScreeningFields) -> str:
-    return EMPTY if fields.schedule is None else ", ".join(SCHEDULE_EN[s] for s in fields.schedule)
+    return EMPTY if fields.schedule is None else ", ".join(SCHEDULE["en"][s] for s in fields.schedule)
 
 
 def experience(fields: ScreeningFields) -> str:
@@ -251,8 +249,8 @@ def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) ->
             status=None if status is None else Status(status),
             country=_choice("country", country, SERVICE_ZONES),
             zone=_choice("zone", zone, {OUTSIDE_ZONE, *(z for zones in SERVICE_ZONES.values() for z in zones)}),
-            availability=_choice("availability", availability, AVAILABILITY_EN),
-            schedule=_choice("schedule", schedule, SCHEDULE_EN),
+            availability=_choice("availability", availability, AVAILABILITY["en"]),
+            schedule=_choice("schedule", schedule, SCHEDULE["en"]),
             search=(q or "").strip() or None,
         )
         with open_storage() as storage:
@@ -268,8 +266,8 @@ def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) ->
             "status": [(s.value, status_label(s)) for s in Status],
             "country": [(country, country) for country in SERVICE_ZONES],
             "zone": SERVICE_ZONES,  # grouped by country in the template
-            "availability": list(AVAILABILITY_EN.items()),
-            "schedule": list(SCHEDULE_EN.items()),
+            "availability": list(AVAILABILITY["en"].items()),
+            "schedule": list(SCHEDULE["en"].items()),
         }
         return templates.TemplateResponse(
             request,

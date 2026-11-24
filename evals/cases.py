@@ -9,7 +9,7 @@ from pydantic_evals import Case, Dataset
 
 from conversation import Script, Transcript
 from evaluators import FieldsExtracted, FinalState, IntentAt, Judge, LanguageAt, LlmCalls, StatusAt, SummaryAt
-from zonia.texts.summary import MONTHS_ES
+from zonia.texts.labels import MONTHS
 from zonia.domain.models import Intent, Stage, Status
 
 NO_REPEATED_QUESTION = Judge(
@@ -68,7 +68,7 @@ def in_days(days: int) -> date:
 
 def spoken(d: date) -> str:
     """The date as a candidate writes it: "1 de diciembre de 2026"."""
-    return f"{d.day} de {MONTHS_ES[d.month - 1]} de {d.year}"
+    return f"{d.day} de {MONTHS["es"][d.month - 1]} de {d.year}"
 
 
 def passed_this_year() -> tuple[str, date]:
@@ -76,7 +76,7 @@ def passed_this_year() -> tuple[str, date]:
     d = date.today() - timedelta(days=30)
     if (d.month, d.day) == (2, 29):  # next year has no 29 February
         d -= timedelta(days=1)
-    return f"{d.day} de {MONTHS_ES[d.month - 1]}", d.replace(year=d.year + 1)
+    return f"{d.day} de {MONTHS["es"][d.month - 1]}", d.replace(year=d.year + 1)
 
 
 NO_YEAR_TEXT, NO_YEAR_DATE = passed_this_year()

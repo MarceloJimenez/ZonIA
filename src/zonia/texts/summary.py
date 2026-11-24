@@ -2,25 +2,7 @@
 
 from zonia.config import local_words_for
 from zonia.domain.models import ScreeningFields
-
-AVAILABILITY_ES = {"full-time": "Tiempo completo", "part-time": "Medio tiempo", "weekends": "Fines de semana"}
-
-SCHEDULE_ES = {"morning": "Mañana", "afternoon": "Tarde", "evening": "Noche", "flexible": "Flexible"}
-
-MONTHS_ES = [
-    "enero", "febrero", "marzo", "abril", "mayo", "junio",
-    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
-]
-
-
-AVAILABILITY_EN = {"full-time": "Full-time", "part-time": "Part-time", "weekends": "Weekends"}
-
-SCHEDULE_EN = {"morning": "Morning", "afternoon": "Afternoon", "evening": "Evening", "flexible": "Flexible"}
-
-MONTHS_EN = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
-]
+from zonia.texts.labels import AVAILABILITY, MONTHS, SCHEDULE
 
 # The words of the summary, per language.
 SUMMARY_TEXT = {
@@ -37,14 +19,12 @@ SUMMARY_TEXT = {
         "opening": "Great{name}. Here are your details:", "question": "Is everything correct?",
     },
 }
-AVAILABILITY = {"es": AVAILABILITY_ES, "en": AVAILABILITY_EN}
-SCHEDULE = {"es": SCHEDULE_ES, "en": SCHEDULE_EN}
 
 
 def _date(d, language: str) -> str:
     if language == "en":
-        return f"{MONTHS_EN[d.month - 1]} {d.day}, {d.year}"
-    return f"{d.day} de {MONTHS_ES[d.month - 1]} de {d.year}"
+        return f"{MONTHS["en"][d.month - 1]} {d.day}, {d.year}"
+    return f"{d.day} de {MONTHS["es"][d.month - 1]} de {d.year}"
 
 
 def render_summary(fields: ScreeningFields, language: str = "es", country: str = "ES") -> str:
@@ -80,6 +60,5 @@ def render_summary(fields: ScreeningFields, language: str = "es", country: str =
             lines.append(f"- {t['platform']}: {fields.experience_platform}")
     if fields.start_date is not None:
         lines.append(f"- {t['start']}: {_date(fields.start_date, language)}")
-    first_name = fields.full_name.split()[0] if fields.full_name else ""
-    opening = t["opening"].format(name=f", {first_name}" if first_name else "")
+    opening = t["opening"].format(name=f", {fields.first_name}" if fields.first_name else "")
     return "\n".join([opening, *lines, t["question"]])

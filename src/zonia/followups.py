@@ -67,8 +67,7 @@ def reminder_text(c: Conversation) -> str:
     if c.turns == 0:
         return NO_REPLY_REMINDER
     t = REMINDER_TEXT[c.language]
-    first_name = c.fields.full_name.split()[0] if c.fields.full_name else ""
-    ask = t["ask"].format(name=f", {first_name}" if first_name else "")
+    ask = t["ask"].format(name=f", {c.fields.first_name}" if c.fields.first_name else "")
     missing = open_fields(c.fields)
     if not missing:
         return f"{ask} {t['confirm']}"

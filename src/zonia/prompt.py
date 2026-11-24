@@ -2,7 +2,7 @@
 
 from zonia.config import JOB_FACTS, PERSONALITY, local_words_for
 from zonia.domain.flow import FIELD_ORDER, open_fields
-from zonia.texts.summary import AVAILABILITY_ES, MONTHS_ES, SCHEDULE_ES
+from zonia.texts.labels import AVAILABILITY, MONTHS, SCHEDULE, WEEKDAYS
 from datetime import date
 
 from zonia.domain.models import ScreeningFields, Status
@@ -114,20 +114,17 @@ def invalid_directive(problems: dict[str, str], country: str = "ES") -> str:
     ])
 
 
-DAYS_ES = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
-
-
 def _today_es(today: date) -> str:
-    return f"Hoy es {DAYS_ES[today.weekday()]}, {today.day} de {MONTHS_ES[today.month - 1]} de {today.year} ({today.isoformat()})."
+    return f"Hoy es {WEEKDAYS['es'][today.weekday()]}, {today.day} de {MONTHS['es'][today.month - 1]} de {today.year} ({today.isoformat()})."
 
 
 def _value_es(name: str, value: object) -> str:
     if isinstance(value, bool):
         return "sí" if value else "no"
     if name == "availability":
-        return ", ".join(AVAILABILITY_ES[a] for a in value)
+        return ", ".join(AVAILABILITY["es"][a] for a in value)
     if name == "schedule":
-        return ", ".join(SCHEDULE_ES[s] for s in value)
+        return ", ".join(SCHEDULE["es"][s] for s in value)
     return str(value)
 
 

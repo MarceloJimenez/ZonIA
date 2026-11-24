@@ -103,6 +103,11 @@ class ScreeningFields(BaseModel):
         ),
     )
 
+    @property
+    def first_name(self) -> str | None:
+        """The first word of full_name, to greet the candidate. None when there is no name yet."""
+        return self.full_name.split()[0] if self.full_name else None
+
 
 Language = Literal["es", "en"]  # the languages Sonia speaks (docs/ASSIGNMENT.md:94)
 

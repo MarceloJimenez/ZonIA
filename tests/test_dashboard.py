@@ -24,7 +24,9 @@ def db(tmp_path):
     storage = Storage(path)
     active = Conversation(fields=ScreeningFields(full_name="Luis Pérez"), stage=Stage.DATA_COLLECTION)
     storage.create(active)
-    qualified_id = storage.create(Conversation(fields=COMPLETE, stage=Stage.CLOSING, status=Status.QUALIFIED))
+    qualified_id = storage.create(
+        Conversation(fields=COMPLETE, stage=Stage.CLOSING, status=Status.QUALIFIED), phone="+34600111222"
+    )
     storage.create(Conversation(
         fields=ScreeningFields(full_name="Marta Gil", driver_license=False), status=Status.DISQUALIFIED, country="MX",
         case_code="K7PX-3QMD",
@@ -90,6 +92,16 @@ def test_no_summary_before_closing(client):
 
 def test_the_detail_shows_the_case_code(client):
     assert "Case K7PX-3QMD" in client.get("/conversations/3").text
+
+
+def test_the_list_shows_the_phone_as_a_call_link(client):
+    html = client.get("/").text
+    assert '<a href="tel:+34600111222">+34600111222</a>' in html
+
+
+def test_the_detail_has_a_call_button_only_when_there_is_a_phone(client):
+    assert 'href="tel:+34600111222">Call +34600111222</a>' in client.get("/conversations/2").text
+    assert "tel:" not in client.get("/conversations/1").text
 
 
 def test_an_unknown_id_gives_404(client):

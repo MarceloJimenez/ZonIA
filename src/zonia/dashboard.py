@@ -83,6 +83,7 @@ def list_row(c: ConversationRow) -> dict:
         "started": when(c.created_at),
         "last": when(c.updated_at),
         "case_code": c.case_code,
+        "phone": c.phone,
     }
 
 

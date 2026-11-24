@@ -12,6 +12,7 @@
 <span class="zn-tag zn-tag--code">Case {{ row.case_code }}</span>
 <p>Started {{ row.started }} · Last message {{ row.last }}</p>
 </div>
+{% if row.phone %}<a class="zn-btn zn-btn--primary call" href="tel:{{ row.phone }}">Call {{ row.phone }}</a>{% endif %}
 </div>
 
 <div class="columns">

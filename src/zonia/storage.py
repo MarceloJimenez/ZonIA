@@ -67,6 +67,7 @@ class ConversationRow:
     created_at: datetime
     updated_at: datetime  # the time of the last saved turn
     case_code: str  # the candidate gets it on disqualification, to ask for a human review
+    phone: str | None  # E.164, for example "+34600111222"; None for the terminal chat
 
 
 class Storage:
@@ -216,7 +217,7 @@ class Storage:
     def conversations(self) -> list[ConversationRow]:
         """Every conversation, newest first."""
         rows = self.db.execute(
-            "SELECT id, country, stage, status, fields, case_code, created_at, updated_at FROM conversations"
+            "SELECT id, country, phone, stage, status, fields, case_code, created_at, updated_at FROM conversations"
             " ORDER BY created_at DESC, id DESC"
         )
         return [self._row(row) for row in rows]
@@ -224,7 +225,7 @@ class Storage:
     def conversation(self, conversation_id: int) -> ConversationRow:
         """The conversation with this id, as the dashboard shows it. Raises KeyError if there is none."""
         row = self.db.execute(
-            "SELECT id, country, stage, status, fields, case_code, created_at, updated_at FROM conversations WHERE id = ?",
+            "SELECT id, country, phone, stage, status, fields, case_code, created_at, updated_at FROM conversations WHERE id = ?",
             (conversation_id,),
         ).fetchone()
         if row is None:
@@ -242,6 +243,7 @@ class Storage:
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
             case_code=row["case_code"],
+            phone=row["phone"],
         )
 
     def messages(self, conversation_id: int) -> list[tuple[str, str]]:

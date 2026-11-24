@@ -18,11 +18,10 @@ from test_turn import FakeLLM, make_agent
 from zonia.adapters import http
 from zonia.adapters.http import WEBHOOK_PATH, create_app, e164
 from zonia.config import GREETING
-from zonia.agent.schema import Turn
-from zonia.agent.prompts.system import SYSTEM
 from zonia.storage import Storage
 from zonia.domain.conversation import new_conversation
 from zonia.texts.replies import FAILURE_REPLY, TEXT_ONLY_REPLY
+from zonia.agent.llm import build_agent
 
 SECRET = "test-app-secret"
 VERIFY = "test-verify-token"
@@ -56,7 +55,7 @@ def hanging_agent() -> Agent:
     async def hang(messages, info):
         await asyncio.sleep(10)
 
-    return Agent(FunctionModel(hang), output_type=Turn, instructions=SYSTEM)
+    return build_agent(FunctionModel(hang))
 
 
 def client(db, fake: FakeLLM, sender: FakeSender, agent: Agent | None = None) -> TestClient:

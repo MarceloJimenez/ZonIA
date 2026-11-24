@@ -2,11 +2,15 @@
 
 from datetime import date
 
-from test_turn import COMPLETE
-from zonia.config import JOB_FACTS, PERSONALITY
+from test_turn import COMPLETE, FakeLLM, make_agent
+import asyncio
+
+from zonia.config import JOB_FACTS
 from zonia.agent.prompts.call_1 import CLOSING_RULES, turn_instructions
 from zonia.agent.prompts.call_2 import DIRECTIVES, ZONE_DIRECTIVE, directive, invalid_directive
-from zonia.agent.prompts.system import FIXED_RULES, SYSTEM, build_system
+from zonia.agent.llm import SONIA
+from zonia.agent.turn import run_turn
+from zonia.domain.conversation import Conversation
 from zonia.domain.models import ScreeningFields, Status
 
 TODAY = date(2026, 11, 22)
@@ -77,16 +81,17 @@ def test_the_job_facts_come_from_the_setting():
 # --- System prompt ----------------------------------------------------------
 
 
-def test_the_system_prompt_has_every_personality_dimension_and_every_fixed_rule():
-    for text in [*PERSONALITY.values(), *FIXED_RULES]:
-        assert text in SYSTEM
+def test_the_system_prompt_in_sonia_yaml_has_every_personality_dimension_and_the_rules():
+    personality, rules = SONIA.instructions.split("\n\nReglas:\n")
+    dimensions = [line.split(":")[0] for line in personality.splitlines()[1:]]
+    assert dimensions == ["Identidad", "Carácter", "Tono", "Registro", "Expresión"]
+    assert all(line.startswith("- ") for line in rules.splitlines())
 
 
-def test_a_client_personality_replaces_the_default_and_keeps_the_fixed_rules():
-    system = build_system({"identidad": "Eres Leo, el asistente de IA de Otra Empresa."})
-    assert "Leo" in system
-    assert "Sonia" not in system
-    assert all(rule in system for rule in FIXED_RULES)
+def test_each_call_reads_the_system_prompt_of_sonia_yaml_first_and_then_the_turn_instructions():
+    fake = FakeLLM([{}])
+    asyncio.run(run_turn(make_agent(fake), Conversation(), "Hola", today=TODAY))
+    assert fake.instructions[0] == f"{SONIA.instructions}\n\n{turn_instructions(ScreeningFields(), TODAY)}"
 
 
 def test_disqualifying_directives_say_lamentablemente():

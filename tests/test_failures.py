@@ -2,18 +2,16 @@
 
 import asyncio
 
-from pydantic_ai import Agent
 from pydantic_ai.exceptions import ModelAPIError, ModelHTTPError
 from pydantic_ai.models.function import FunctionModel
 
 from test_turn import CALL_1_REPLY, FakeLLM, make_agent
 from zonia.config import contact_email_for
-from zonia.agent.schema import Turn
 from zonia.domain.models import ScreeningFields, Status
-from zonia.agent.prompts.system import SYSTEM
 from zonia.domain.conversation import Conversation
 from zonia.texts.replies import FAILURE_REPLY
 from zonia.agent.safety import RETRY_DELAYS, run_turn_safely
+from zonia.agent.llm import build_agent
 
 
 class FailingLLM(FakeLLM):
@@ -136,7 +134,7 @@ def test_an_llm_that_does_not_answer_in_the_time_limit_gives_the_failure_reply_a
         await asyncio.sleep(10)
 
     conversation = Conversation(fields=ScreeningFields(full_name="Ana López"))
-    agent = Agent(FunctionModel(hang), output_type=Turn, instructions=SYSTEM)
+    agent = build_agent(FunctionModel(hang))
     turn = asyncio.run(run_turn_safely(agent, conversation, "Sí, tengo carnet", time_limit=0.05))
     assert (turn.reply, turn.reply_source) == (FAILURE_REPLY["es"], "fallback")
     assert conversation.fields == ScreeningFields(full_name="Ana López")

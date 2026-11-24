@@ -54,6 +54,7 @@ class TurnResult(BaseModel):
     llm_calls: int  # 0 when the turn failed (FALLBACK) or the turn limit was reached (LIMIT)
     reply_source: ReplySource
     invalid_fields: list[str] = []  # values the candidate gave that code dropped
+    prompt_version: str | None = None  # the prompt that wrote the reply, for example "sonia@1"; None when code wrote it
 
 
 async def run_turn(
@@ -85,11 +86,14 @@ async def run_turn(
             instructions=f"{call_2_directive}\n\n{local_words(c.country)}\n\n{reply_language(language)}",
         )
         reply, history, calls, source = result_2.output, result_2.all_messages(), 2, ReplySource.CALL_2
+        prompt_version = _prompt_version(agent, result_2.metadata)
     elif _shows_summary(c, stage, status, intent, fields):
         reply = render_summary(fields, language, c.country)
         history, calls, source = _summary_history(c, text, reply), 1, ReplySource.SUMMARY
+        prompt_version = None
     else:
         reply, history, calls, source = result.output.reply, result.all_messages(), 1, ReplySource.CALL_1
+        prompt_version = _prompt_version(agent, result.metadata)
 
     case_code = c.case_code
     if status == Status.DISQUALIFIED and status != c.status:
@@ -99,8 +103,16 @@ async def run_turn(
     c.case_code, c.language = case_code, language
     return TurnResult(
         message=text, reply=reply, intent=intent, stage=stage, status=status, language=language,
-        llm_calls=calls, reply_source=source, invalid_fields=list(problems),
+        llm_calls=calls, reply_source=source, invalid_fields=list(problems), prompt_version=prompt_version,
     )
+
+
+def _prompt_version(agent: Agent, metadata: dict | None) -> str | None:
+    """The agent's name and the version in its spec (sonia.yaml), for example "sonia@1".
+
+    None for an agent built without a spec.
+    """
+    return f"{agent.name}@{metadata['version']}" if metadata and "version" in metadata else None
 
 
 def _merge_fields(c: Conversation, new: ScreeningFields, today: date) -> tuple[ScreeningFields, dict[str, str]]:

@@ -16,18 +16,18 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from zonia.config import GREETING, contact_email_for
 from zonia.texts.summary import render_summary
-from zonia.agent.schema import Turn
 from zonia.domain.models import ScreeningFields, Stage, Status
 from zonia.agent.prompts.call_1 import turn_instructions
 from zonia.agent.prompts.call_2 import DIRECTIVES, ZONE_DIRECTIVE, directive
-from zonia.agent.prompts.system import SYSTEM
 from zonia.domain.conversation import CASE_CODE_ALPHABET, Conversation, new_case_code, new_conversation
 from zonia.agent.turn import run_turn
+from zonia.agent.llm import SONIA, build_agent, spec_version
 
 CALL_1_REPLY = "CALL-1 REPLY"
 CALL_2_REPLY = "CALL-2 REPLY"
 
 START = date.today() + timedelta(days=10)
+VERSION = spec_version(SONIA)  # for example "sonia@1"
 
 COMPLETE = ScreeningFields(
     full_name="Ana López", driver_license=True, city_zone="Chamberí", service_zone="Comunidad de Madrid", availability=["full-time"],
@@ -51,7 +51,7 @@ class FakeLLM:
 
 
 def make_agent(fake: FakeLLM) -> Agent:
-    return Agent(FunctionModel(fake), output_type=Turn, instructions=SYSTEM)
+    return build_agent(FunctionModel(fake))
 
 
 def history_text(conversation: Conversation) -> str:
@@ -64,6 +64,7 @@ def test_an_ordinary_turn_uses_one_call_and_keeps_its_reply():
     conversation = Conversation()
     turn = asyncio.run(run_turn(make_agent(fake), conversation, "Soy Ana López"))
     assert (turn.reply, turn.llm_calls, turn.reply_source) == (CALL_1_REPLY, 1, "call_1")
+    assert turn.prompt_version == VERSION
     assert conversation.fields.full_name == "Ana López"
     # Call 1 is told what is known and what is missing, from the fields before this turn.
     assert turn_instructions(ScreeningFields(), date.today()) in fake.instructions[0]
@@ -94,6 +95,7 @@ def test_a_status_change_replaces_the_reply_with_call_2_following_the_directive(
     # A disqualification adds the review email and the case code after call 2's reply.
     assert turn.reply.startswith(CALL_2_REPLY)
     assert (turn.llm_calls, turn.reply_source) == (2, "call_2")
+    assert turn.prompt_version == VERSION
     assert directive(status, ScreeningFields(driver_license=False)) in fake.instructions[-1]
 
 
@@ -125,6 +127,7 @@ def test_the_summary_is_written_by_code_and_kept_in_the_history():
     assert turn.stage == Stage.CLOSING
     assert turn.reply == render_summary(conversation.fields)
     assert (turn.llm_calls, turn.reply_source) == (1, "summary")
+    assert turn.prompt_version is None  # code wrote the summary, not the LLM
     assert turn.reply in history_text(conversation)  # so the next turn knows what is being confirmed
 
 
@@ -206,7 +209,7 @@ def test_a_failed_llm_call_leaves_the_conversation_unchanged():
         raise RuntimeError("503 from the provider")
 
     conversation = Conversation()
-    agent = Agent(FunctionModel(broken), output_type=Turn, instructions=SYSTEM)
+    agent = build_agent(FunctionModel(broken))
     with pytest.raises(RuntimeError, match="503"):
         asyncio.run(run_turn(agent, conversation, "Soy Luis y no tengo carnet"))
     assert conversation.status == Status.ACTIVE

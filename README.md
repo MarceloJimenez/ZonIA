@@ -10,11 +10,14 @@ You need Python 3.12 or newer and [uv](https://docs.astral.sh/uv/).
 2. Create a file `.env` in the project folder with the variables below.
 3. Run the tests: `uv run pytest`.
 
+Sonia's model, its settings and her system prompt are in `src/zonia/agent/sonia.yaml`, a [Pydantic AI agent spec](https://ai.pydantic.dev/agent-spec/).
+Its `metadata.version` names the prompt: each message Sonia writes saves it, for example `sonia@1`.
+When the text the LLM reads changes, `tests/test_prompt_version.py` fails until you raise the version.
+
 | Variable | Needed by | What it is |
 |---|---|---|
 | `ZONIA_BASE_URL` | every command that calls the LLM | An OpenAI-compatible endpoint. For Gemini: `https://generativelanguage.googleapis.com/v1beta/openai/` |
 | `ZONIA_API_KEY` | same | The API key of that provider. |
-| `ZONIA_MODEL` | same | The model name, for example `gemini-3.1-flash-lite`. |
 | `ZONIA_DB` | optional | The SQLite database file. Default: `zonia.db`. |
 | `ZONIA_COUNTRY` | optional, `zonia` only | `ES` (Spain) or `MX` (Mexico) for a new terminal chat. Default: `ES`. |
 | `META_APP_SECRET`, `META_VERIFY_TOKEN`, `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID` | `zonia-server` | Meta's WhatsApp Cloud API. The server does not start without them. For the web chat only, any value works. |

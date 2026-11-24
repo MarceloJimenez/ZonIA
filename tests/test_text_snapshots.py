@@ -1,10 +1,10 @@
-"""Every text Sonia or the LLM gets from code stays exactly the same.
+"""Every text code writes for the candidate stays exactly the same: the summary, the fixed replies,
+the reminders and the greeting. The texts the LLM reads are in test_prompt_version.py.
 
 Each text is kept in tests/text_snapshots/<name>.txt. A change of one letter fails the test.
 To write the files again after a change made on purpose: UPDATE_SNAPSHOTS=1 uv run pytest tests/test_text_snapshots.py
 """
 
-import json
 import os
 from collections.abc import Callable
 from datetime import date
@@ -14,17 +14,12 @@ import pytest
 
 from zonia.config import GREETING, contact_email_for
 from zonia.texts.summary import render_summary
-from zonia.agent.schema import turn_model
-from zonia.domain.models import ScreeningFields, Status
-from zonia.agent.prompts.call_1 import turn_instructions
-from zonia.agent.prompts.call_2 import directive, invalid_directive, reply_language
-from zonia.agent.prompts.system import SYSTEM
+from zonia.domain.models import ScreeningFields
 from zonia.domain.conversation import Conversation
 from zonia.texts.replies import CONTACT_REPLY, FAILURE_REPLY, LIMIT_REPLY, REVIEW_REPLY, reminder_text
-from zonia.domain.validation import validate
 
 SNAPSHOTS = Path(__file__).parent / "text_snapshots"
-TODAY = date(2026, 11, 24)
+SNAPSHOTS_TODAY = date(2026, 11, 24)  # the date in the texts the LLM reads (test_prompt_version.py)
 CASE_CODE = "K7M2Q9XR"
 COUNTRIES = ["ES", "MX"]
 LANGUAGES = ["es", "en"]
@@ -44,33 +39,16 @@ ALL_BUT_ONE = ScreeningFields(
 COMPLETE = ALL_BUT_ONE.model_copy(update={"start_date": date(2026, 12, 1)})
 FIELD_SETS = {"empty": EMPTY, "partial": PARTIAL, "all_but_one": ALL_BUT_ONE, "complete": COMPLETE}
 
-# Values that validate() rejects, so invalid_directive() gets the real reasons.
+# Values that validate() rejects, so invalid_directive() gets the real reasons (test_prompt_version.py).
 INVALID = ScreeningFields(full_name="Ana", experience_years=2015, start_date=date(2026, 11, 1))
 NO_LICENSE = ScreeningFields(full_name="Ana López", driver_license=False)
 
 
 def _texts() -> dict[str, Callable[[], str]]:
     """Snapshot name -> the code that writes the text today."""
-    texts: dict[str, Callable[[], str]] = {"system": lambda: SYSTEM}
-
-    for country in COUNTRIES:
-        for set_name, fields in FIELD_SETS.items():
-            texts[f"turn_instructions.{set_name}.{country}"] = (
-                lambda f=fields, c=country: turn_instructions(f, TODAY, country=c)
-            )
-        texts[f"turn_instructions.partial.en.{country}"] = (
-            lambda c=country: turn_instructions(PARTIAL, TODAY, language="en", country=c)
-        )
-        for status in Status:
-            texts[f"directive.{status}.{country}"] = lambda s=status, c=country: str(directive(s, NO_LICENSE, c))
-        texts[f"directive.zone.{country}"] = lambda c=country: str(directive(Status.DISQUALIFIED, PARTIAL, c))
-        texts[f"invalid_directive.{country}"] = lambda c=country: invalid_directive(validate(INVALID, TODAY), c)
-        texts[f"schema.{country}"] = lambda c=country: json.dumps(
-            turn_model(c).model_json_schema(), ensure_ascii=False, indent=2
-        )
+    texts: dict[str, Callable[[], str]] = {}
 
     for language in LANGUAGES:
-        texts[f"reply_language.{language}"] = lambda lang=language: reply_language(lang)
         for country in COUNTRIES:
             texts[f"render_summary.{language}.{country}"] = (
                 lambda lang=language, c=country: render_summary(COMPLETE, lang, c)

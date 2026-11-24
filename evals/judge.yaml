@@ -1,0 +1,10 @@
+# The judge of the evals: a Pydantic AI agent spec (https://ai.pydantic.dev/agent-spec/).
+# evals/conversation.py reads the model and the settings from here.
+# The judge's rubrics live in evals/evaluators.py and evals/personas.py.
+# Raise metadata.version when the model or the settings change, so eval reports say which judge graded them.
+name: judge
+model: gemini-3.5-flash  # a larger model than Sonia's
+model_settings:
+  openai_reasoning_effort: high  # the judge thinks before it grades
+metadata:
+  version: 1

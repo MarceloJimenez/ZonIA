@@ -24,7 +24,7 @@ settings.load()
 
 from pydantic_ai import Agent  # noqa: E402
 
-from conversation import AGENT, JUDGE_MODEL, JUDGE_SETTINGS, MODEL, with_retries  # noqa: E402
+from conversation import AGENT, JUDGE, JUDGE_MODEL, JUDGE_SETTINGS, MODEL, with_retries  # noqa: E402
 from run import git_version  # noqa: E402
 from pydantic_evals.evaluators.llm_as_a_judge import judge_output  # noqa: E402
 
@@ -33,6 +33,7 @@ from zonia.domain.flow import FINAL_STATUSES  # noqa: E402
 from zonia.domain.models import Status  # noqa: E402
 from zonia.domain.conversation import new_conversation  # noqa: E402
 from zonia.agent.turn import run_turn  # noqa: E402
+from zonia.agent.llm import SONIA, describe  # noqa: E402
 
 REPORTS = Path(__file__).parent / "reports"
 MAX_CANDIDATE_TURNS = 20
@@ -180,8 +181,8 @@ def write_report(results: list[Result], started: datetime) -> Path:
     out = [
         f"# Simulated candidates {started:%Y-%m-%d %H:%M}",
         "",
-        f"- Model: `{os.environ.get('ZONIA_MODEL')}` (Sonia and the candidates)",
-        f"- Judge model: `{os.environ.get('ZONIA_JUDGE_MODEL')}` (high reasoning effort)",
+        f"- Agent: {describe(SONIA)} (Sonia and the candidates)",
+        f"- Judge: {describe(JUDGE)}",
         f"- Code: `{git_version()}`",
         "",
         "| Persona | Channel | Country | Candidate messages | Final status | Rules passed |",

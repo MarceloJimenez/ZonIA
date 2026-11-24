@@ -79,4 +79,4 @@ Code checks are used for everything that can be measured exactly. The LLM judge 
 ## Limits
 
 - Each case runs once. LLM output varies, so one pass is evidence, not proof.
-- The judge is a larger Gemini model than the agent's (`ZONIA_JUDGE_MODEL` in `.env`), with high reasoning effort. It is still from the same family as the agent, so it can favour the agent's style.
+- The judge is a larger Gemini model than the agent's (`evals/judge.yaml`), with high reasoning effort. It is still from the same family as the agent, so it can favour the agent's style.

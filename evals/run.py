@@ -20,7 +20,8 @@ settings.load()
 from pydantic_evals import Dataset  # noqa: E402
 
 from cases import DATASET  # noqa: E402
-from conversation import converse  # noqa: E402
+from conversation import JUDGE, converse  # noqa: E402
+from zonia.agent.llm import SONIA, describe  # noqa: E402
 
 REPORTS = Path(__file__).parent / "reports"
 
@@ -48,8 +49,8 @@ def write_report(report, started: datetime) -> Path:
     out = [
         f"# Eval run {started:%Y-%m-%d %H:%M}",
         "",
-        f"- Model: `{os.environ.get('ZONIA_MODEL')}` (agent)",
-        f"- Judge model: `{os.environ.get('ZONIA_JUDGE_MODEL')}` (high reasoning effort)",
+        f"- Agent: {describe(SONIA)}",
+        f"- Judge: {describe(JUDGE)}",
         f"- Code: `{git_version()}`",
         f"- Cases passed: **{passed} of {len(report.cases) + len(report.failures)}**",
         "",

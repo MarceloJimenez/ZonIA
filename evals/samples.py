@@ -24,6 +24,7 @@ from cases import ANA, ANA_START, CASES  # noqa: E402
 from conversation import Script, Transcript, converse  # noqa: E402
 from zonia.texts.summary import render_summary  # noqa: E402
 from zonia.domain.models import Stage  # noqa: E402
+from zonia.agent.llm import SONIA, spec_version  # noqa: E402
 
 OUT = Path(__file__).parent.parent / "deliverables" / "sample-conversations"
 
@@ -94,7 +95,7 @@ def index_file(rows: list[tuple[str, str, Transcript]], started: datetime) -> st
     out = [
         "# Sample conversations",
         "",
-        f"Played against the real LLM (`{os.environ.get('ZONIA_MODEL')}`) on {started:%Y-%m-%d}.",
+        f"Played against the real LLM (`{SONIA.model}`, prompt `{spec_version(SONIA)}`) on {started:%Y-%m-%d}.",
         "The candidate's messages are scripted. Sonia's replies are what the model wrote.",
         "",
         "| Sample | What it shows | Final status |",

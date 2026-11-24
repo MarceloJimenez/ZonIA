@@ -51,7 +51,8 @@ CREATE TABLE IF NOT EXISTS messages (
     role TEXT NOT NULL CHECK (role IN ('candidate', 'agent')),
     text TEXT NOT NULL,
     external_id TEXT UNIQUE,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    prompt_version TEXT  -- the prompt that wrote an agent reply, for example "sonia@1"; NULL when code wrote it
 );
 CREATE INDEX IF NOT EXISTS conversations_phone ON conversations(phone);
 CREATE TABLE IF NOT EXISTS recruiter_updates (
@@ -98,6 +99,14 @@ class Storage:
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.executescript(SCHEMA)
+        self._add_prompt_version()
+
+    def _add_prompt_version(self) -> None:
+        """A database made before the prompt had a version gets the messages.prompt_version column."""
+        columns = {row["name"] for row in self.db.execute("PRAGMA table_info(messages)")}
+        if "prompt_version" not in columns:
+            with self.db:
+                self.db.execute("ALTER TABLE messages ADD COLUMN prompt_version TEXT")
 
     def close(self) -> None:
         self.db.close()
@@ -163,12 +172,19 @@ class Storage:
         )
 
     def save_turn(
-        self, conversation_id: int, conversation: Conversation, message: str, reply: str, external_id: str | None = None
+        self,
+        conversation_id: int,
+        conversation: Conversation,
+        message: str,
+        reply: str,
+        external_id: str | None = None,
+        prompt_version: str | None = None,
     ) -> None:
         """Save the conversation after one turn, and the turn's two messages.
 
         message is what the candidate wrote; reply is what Sonia answered.
         external_id is the channel's id for the candidate's message (the WhatsApp message id).
+        prompt_version is the prompt that wrote the reply (TurnResult.prompt_version).
 
         One transaction: either everything is saved, or nothing is. Sonia has just replied,
         so waiting_since starts again.
@@ -184,10 +200,11 @@ class Storage:
             if updated.rowcount == 0:
                 raise KeyError(conversation_id)
             self.db.executemany(
-                "INSERT INTO messages (conversation_id, role, text, external_id, created_at) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO messages (conversation_id, role, text, external_id, created_at, prompt_version)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
                 [
-                    (conversation_id, Role.CANDIDATE, message, external_id, now),
-                    (conversation_id, Role.AGENT, reply, None, now),
+                    (conversation_id, Role.CANDIDATE, message, external_id, now, None),
+                    (conversation_id, Role.AGENT, reply, None, now, prompt_version),
                 ],
             )
 

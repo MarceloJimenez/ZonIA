@@ -11,7 +11,7 @@ import sys
 
 from zonia import settings
 from zonia.config import GREETING
-from zonia.agent.llm import build_agent, build_model
+from zonia.agent.llm import build_agent
 from zonia.storage import Storage
 from zonia.domain.conversation import new_conversation
 from zonia.agent.safety import run_turn_safely
@@ -21,7 +21,7 @@ def main() -> None:
     # The chat stays open after a final status: a later message can reopen it.
     # An empty line or Ctrl-D ends the chat.
     settings.load()
-    agent = build_agent(build_model())
+    agent = build_agent()
     with Storage(settings.db_path()) as storage:
         if len(sys.argv) > 1:
             try:
@@ -45,7 +45,9 @@ def main() -> None:
                 break
             turn = asyncio.run(run_turn_safely(agent, conversation, text))
             # A failed turn is saved too: the recruiter sees the candidate's message.
-            storage.save_turn(conversation_id, conversation, turn.message, turn.reply)
+            storage.save_turn(
+                conversation_id, conversation, turn.message, turn.reply, prompt_version=turn.prompt_version
+            )
             print(turn.reply)
             print(conversation.fields)
             print(f"intent={turn.intent} stage={turn.stage} status={turn.status} calls={turn.llm_calls}")

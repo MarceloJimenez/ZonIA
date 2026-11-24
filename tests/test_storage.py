@@ -101,6 +101,35 @@ def test_the_greeting_is_saved_as_sonias_first_messages(storage):
     assert storage.load(conversation_id) == conversation
 
 
+def test_sonias_reply_keeps_the_prompt_version_and_the_candidates_message_has_none(storage):
+    conversation = Conversation()
+    conversation_id = storage.create(conversation)
+    storage.save_turn(conversation_id, conversation, "Hola", "Hola, soy Sonia", prompt_version="sonia@1")
+    rows = storage.db.execute(
+        "SELECT role, prompt_version FROM messages WHERE conversation_id = ? ORDER BY id", (conversation_id,)
+    ).fetchall()
+    assert [tuple(row) for row in rows] == [("candidate", None), ("agent", "sonia@1")]
+
+
+def test_a_database_made_before_the_prompt_version_gets_the_column_and_keeps_its_messages(tmp_path):
+    path = tmp_path / "old.db"
+    old = sqlite3.connect(path)
+    old_schema = storage_module.SCHEMA.replace(
+        "    created_at TEXT NOT NULL,\n    prompt_version TEXT", "    created_at TEXT NOT NULL"
+    )
+    assert old_schema != storage_module.SCHEMA
+    old.executescript(old_schema)
+    old.close()
+    with Storage(path) as s:
+        conversation = Conversation()
+        conversation_id = s.create(conversation, GREETING)
+        s.save_turn(conversation_id, conversation, "Hola", "Hola, soy Sonia", prompt_version="sonia@1")
+        columns = [row["name"] for row in s.db.execute("PRAGMA table_info(messages)")]
+        assert columns[-1] == "prompt_version"
+        assert s.messages(conversation_id)[-2:] == [("candidate", "Hola"), ("agent", "Hola, soy Sonia")]
+    Storage(path).close()  # opening it again does not add the column twice
+
+
 def test_a_new_conversation_gets_a_case_code(storage):
     conversation = Conversation()
     conversation_id = storage.create(conversation)

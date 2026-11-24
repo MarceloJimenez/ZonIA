@@ -61,6 +61,7 @@ Code checks are used for everything that can be measured exactly. The LLM judge 
 | `availability_other_weekdays` | The same with "puedo lunes miercoles y viernes". |
 | `past_start_date` | A date in the past is not saved. Sonia says it has passed and asks for a new one. |
 | `start_tomorrow` | "Mañana" becomes tomorrow's date, because the turn is told today's date. |
+| `start_date_without_year` | A day and month that already passed this year, without a year, becomes that day next year. |
 | `full_run_qualified` | Six messages, all fields extracted, summary by code, qualified. |
 | `corrects_the_summary` | A correction shows a new summary with the new value. |
 | `everything_in_first_message` | All data in one message gives the summary at once. |

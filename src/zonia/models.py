@@ -77,7 +77,13 @@ class ScreeningFields(BaseModel):
 
     experience_platform: Optional[str] = None
 
-    start_date: Optional[date] = None
+    start_date: Optional[date] = Field(
+        None,
+        description=(
+            "Si el candidato no dice el año, usa la próxima vez que llega esa fecha, contando desde hoy: "
+            "si este año ya pasó, es la del año que viene."
+        ),
+    )
 
 
 Language = Literal["es", "en"]  # the languages Sonia speaks (docs/ASSIGNMENT.md:94)

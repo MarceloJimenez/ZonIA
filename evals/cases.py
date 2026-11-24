@@ -71,6 +71,17 @@ def spoken(d: date) -> str:
     return f"{d.day} de {MONTHS_ES[d.month - 1]} de {d.year}"
 
 
+def passed_this_year() -> tuple[str, date]:
+    """A day and month that already passed this year, without the year, and the same day next year."""
+    d = date.today() - timedelta(days=30)
+    if (d.month, d.day) == (2, 29):  # next year has no 29 February
+        d -= timedelta(days=1)
+    return f"{d.day} de {MONTHS_ES[d.month - 1]}", d.replace(year=d.year + 1)
+
+
+NO_YEAR_TEXT, NO_YEAR_DATE = passed_this_year()
+
+
 ANA_START = in_days(30)
 LUIS_START = in_days(55)
 CARLOS_START = in_days(45)
@@ -207,6 +218,11 @@ CASES = [
         name="start_tomorrow",
         inputs=Script(messages=[*ANA[:4], "Puedo empezar mañana"]),
         evaluators=(FieldsExtracted({"start_date": in_days(1)}), SummaryAt(4)),
+    ),
+    Case(
+        name="start_date_without_year",
+        inputs=Script(messages=[*ANA[:4], f"Puedo empezar el {NO_YEAR_TEXT}"]),
+        evaluators=(FieldsExtracted({"start_date": NO_YEAR_DATE}), SummaryAt(4)),
     ),
     Case(
         name="full_run_qualified",

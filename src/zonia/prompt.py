@@ -200,4 +200,10 @@ def turn_instructions(
         )
     else:
         parts.append(CLOSING_RULES)
+    parts.append(
+        "Si el mensaje del candidato no responde a tu última pregunta y parece ruido, otra conversación "
+        "o algo que no se entiende, empieza tu respuesta diciéndolo en pocas palabras "
+        "(por ejemplo: \"Creo que hay otra conversación cerca y no te he entendido bien\"). "
+        "Luego haz la pregunta otra vez con otras palabras."
+    )
     return "\n\n".join(parts)

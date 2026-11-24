@@ -71,6 +71,7 @@ Code checks are used for everything that can be measured exactly. The LLM judge 
 | `qualified_corrects_a_field` | A qualified candidate who corrects a value sees a new summary and is active again. |
 | `qualified_no_longer_interested` | A qualified candidate who is no longer interested ends as `withdrawn`. |
 | `goodbye_keeps_qualified` | "Gracias, adiós" after qualifying changes nothing, and the reply is a short goodbye. |
+| `background_conversation` | A message that is another conversation (voice, background) saves nothing. Sonia says she did not understand and asks again in other words. |
 
 ## Limits
 

@@ -21,7 +21,9 @@ NO_REPEATED_QUESTION = Judge(
     "Asking again for a value that was not valid (for example a date in the past) is fine. "
     "When Sonia offers options and the candidate answers with something that is not one of them "
     "(for example specific weekdays instead of full-time, part-time or weekends), asking again to choose "
-    "one of the options is fine.",
+    "one of the options is fine. "
+    "When the candidate's message does not answer the question (noise or another conversation), "
+    "asking the same question again in other words is fine.",
 )
 SAYS_DISQUALIFIED = Judge(
     "follows directive",
@@ -320,6 +322,25 @@ CASES = [
                 "Sonia's last reply says the company is in Spain and Mexico, and adds no other facts about "
                 "the company or the job. Then it asks the next screening question (driving licence or "
                 "where the candidate lives).",
+            ),
+        ),
+    ),
+    # --- A message that is not for Sonia (voice, conversation 24) ---
+    Case(
+        name="background_conversation",
+        inputs=Script(messages=[
+            *ANA[:2],
+            "¿Pero con quién estás hablando? ¿Con Claudia? No, con la Sonia. Ah. ¿Cómo que Sonia? "
+            "Con Sonia, mi agente virtual. Es la que estoy creando para una empresa.",
+        ]),
+        evaluators=(
+            FieldsExtracted({"availability": None, "schedule": None}),
+            FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
+            Judge(
+                "says it did not understand",
+                "Sonia's last reply says briefly that she did not understand the message or that it seems "
+                "to be another conversation, and asks again for availability or preferred schedule, "
+                "in different words from her previous question.",
             ),
         ),
     ),

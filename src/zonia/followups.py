@@ -137,9 +137,6 @@ def run_followups(storage: Storage, now: datetime) -> list[FollowUp]:
 def main() -> None:
     """`zonia-followups`: check every conversation once and print what was done."""
     settings.load()
-    storage = Storage(settings.db_path())
-    try:
+    with Storage(settings.db_path()) as storage:
         for f in run_followups(storage, storage.clock()):
             print(f"conversation={f.conversation_id} step={f.step}" + (f" reminder={f.reminder!r}" if f.reminder else ""))
-    finally:
-        storage.close()

@@ -21,8 +21,7 @@ def main() -> None:
     # An empty line or Ctrl-D ends the chat.
     settings.load()
     agent = build_agent(build_model())
-    storage = Storage(settings.db_path())
-    try:
+    with Storage(settings.db_path()) as storage:
         if len(sys.argv) > 1:
             try:
                 conversation_id = int(sys.argv[1])
@@ -49,5 +48,3 @@ def main() -> None:
             print(turn.reply)
             print(conversation.fields)
             print(f"intent={turn.intent} stage={turn.stage} status={turn.status} calls={turn.llm_calls}")
-    finally:
-        storage.close()

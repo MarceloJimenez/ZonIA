@@ -255,11 +255,8 @@ def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) ->
             schedule=_choice("schedule", schedule, SCHEDULE_EN),
             search=(q or "").strip() or None,
         )
-        storage = open_storage()
-        try:
+        with open_storage() as storage:
             every = storage.conversations()
-        finally:
-            storage.close()
         if view == "to_call":
             pool = [c for c in every if to_call(c)]
             shown = sorted((c for c in pool if filters.matches(c)), key=lambda c: c.updated_at)  # longest wait first
@@ -289,15 +286,13 @@ def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) ->
 
     @app.get("/conversations/{conversation_id}", response_class=HTMLResponse)
     def candidate_detail(request: Request, conversation_id: int):
-        storage = open_storage()
-        try:
-            c = storage.conversation(conversation_id)
-            messages = storage.messages(conversation_id)
-            updates = storage.recruiter_updates(conversation_id)
-        except KeyError:
-            raise HTTPException(status_code=404, detail="No conversation with this id")
-        finally:
-            storage.close()
+        with open_storage() as storage:
+            try:
+                c = storage.conversation(conversation_id)
+                messages = storage.messages(conversation_id)
+                updates = storage.recruiter_updates(conversation_id)
+            except KeyError:
+                raise HTTPException(status_code=404, detail="No conversation with this id")
         return templates.TemplateResponse(
             request,
             "detail.html",
@@ -326,13 +321,11 @@ def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) ->
         note = note.strip() or None
         if outcome is None and note is None:
             raise HTTPException(status_code=422, detail="Choose an outcome or write a note")
-        storage = open_storage()
-        try:
-            storage.add_recruiter_update(conversation_id, outcome, note)
-        except KeyError:
-            raise HTTPException(status_code=404, detail="No conversation with this id")
-        finally:
-            storage.close()
+        with open_storage() as storage:
+            try:
+                storage.add_recruiter_update(conversation_id, outcome, note)
+            except KeyError:
+                raise HTTPException(status_code=404, detail="No conversation with this id")
         # 303: the browser loads the page with GET, so a reload does not send the form again.
         return RedirectResponse(f"/conversations/{conversation_id}", status_code=303)
 

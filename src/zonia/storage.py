@@ -102,6 +102,13 @@ class Storage:
     def close(self) -> None:
         self.db.close()
 
+    def __enter__(self) -> "Storage":
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        # Close only, as the try/finally blocks did: each method commits its own writes.
+        self.close()
+
     def create(self, conversation: Conversation, agent_messages: list[str] = (), phone: str | None = None) -> int:
         """Save a new conversation and return its id.
 

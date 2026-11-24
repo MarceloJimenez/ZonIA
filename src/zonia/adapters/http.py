@@ -156,24 +156,18 @@ def create_app(
             return templates.TemplateResponse(request, "apply.html", context, status_code=422)
         country, e164_phone = match
         conversation = new_conversation(country)
-        storage = Storage(db_path)
-        try:
+        with Storage(db_path) as storage:
             storage.create(conversation, GREETING, phone=e164_phone)
-        finally:
-            storage.close()
         page = "voice" if channel == "voice" else "chat"
         return RedirectResponse(f"/{page}/{conversation.case_code}", status_code=303)
 
     @app.get("/chat/{case_code}", response_class=HTMLResponse)
     async def chat(request: Request, case_code: str) -> HTMLResponse:
-        storage = Storage(db_path)
-        try:
+        with Storage(db_path) as storage:
             conversation_id = storage.find_by_case_code(case_code)
             if conversation_id is None:
                 raise HTTPException(status_code=404)
             messages = storage.messages(conversation_id)
-        finally:
-            storage.close()
         return templates.TemplateResponse(request, "chat.html", {"case_code": case_code, "messages": messages})
 
     @app.post("/chat/{case_code}/messages")
@@ -184,16 +178,13 @@ def create_app(
             raise HTTPException(status_code=422)
         started = time.monotonic()
         async with locks[case_code]:
-            storage = Storage(db_path)
-            try:
+            with Storage(db_path) as storage:
                 conversation_id = storage.find_by_case_code(case_code)
                 if conversation_id is None:
                     raise HTTPException(status_code=404)
                 conversation = storage.load(conversation_id)
                 turn = await run_turn_safely(agent, conversation, text, time_limit=CHAT_TIME_LIMIT)
                 storage.save_turn(conversation_id, conversation, turn)
-            finally:
-                storage.close()
         log_turn("web", case_code, text, turn.reply, started)
         return {"reply": turn.reply}
 
@@ -203,14 +194,11 @@ def create_app(
 
         In a new conversation she says the whole greeting: its first message introduces her.
         """
-        storage = Storage(db_path)
-        try:
+        with Storage(db_path) as storage:
             conversation_id = storage.find_by_case_code(case_code)
             if conversation_id is None:
                 raise HTTPException(status_code=404)
             messages = storage.messages(conversation_id)
-        finally:
-            storage.close()
         if all(role == "agent" for role, _ in messages):
             first_message = " ".join(text for _, text in messages)
         else:
@@ -237,16 +225,13 @@ def create_app(
             if request_key == last_key:
                 logger.info("voice %s | ElevenLabs sent the same turn again; reply reused | %.1f s", case_code, time.monotonic() - started)
                 return StreamingResponse(voice_stream(last_reply), media_type="text/event-stream")
-            storage = Storage(db_path)
-            try:
+            with Storage(db_path) as storage:
                 conversation_id = storage.find_by_case_code(case_code)
                 if conversation_id is None:
                     raise HTTPException(status_code=404)
                 conversation = storage.load(conversation_id)
                 turn = await run_turn_safely(agent, conversation, text, time_limit=VOICE_TIME_LIMIT)
                 storage.save_turn(conversation_id, conversation, turn)
-            finally:
-                storage.close()
             voice_replies[case_code] = (request_key, turn.reply)
         log_turn("voice", case_code, text, turn.reply, started)
         return StreamingResponse(voice_stream(turn.reply), media_type="text/event-stream")
@@ -254,8 +239,7 @@ def create_app(
     async def handle(phone: str, text: str, has_media: bool, message_id: str) -> None:
         started = time.monotonic()
         async with locks[phone]:
-            storage = Storage(db_path)
-            try:
+            with Storage(db_path) as storage:
                 conversation_id = storage.find_by_phone(phone)
                 if conversation_id is None:
                     logger.warning("WhatsApp message from a phone with no application: %s", message_id)
@@ -269,8 +253,6 @@ def create_app(
                     return
                 turn = await run_turn_safely(agent, conversation, text, time_limit=CHAT_TIME_LIMIT)
                 storage.save_turn(conversation_id, conversation, turn, external_id=message_id)
-            finally:
-                storage.close()
         log_turn("whatsapp", phone, text, turn.reply, started)
         await send(phone, turn.reply)
 

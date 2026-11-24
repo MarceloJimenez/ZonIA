@@ -120,3 +120,18 @@ def test_a_repeated_case_code_given_by_the_caller_is_rejected(storage):
 def test_an_unknown_id_raises_key_error(storage):
     with pytest.raises(KeyError):
         storage.load(999)
+
+
+def test_with_block_closes_the_connection(tmp_path):
+    with Storage(tmp_path / "zonia.db") as s:
+        s.create(new_conversation("ES"))
+    with pytest.raises(sqlite3.ProgrammingError):
+        s.db.execute("SELECT 1")
+
+
+def test_with_block_closes_the_connection_after_an_error(tmp_path):
+    with pytest.raises(KeyError):
+        with Storage(tmp_path / "zonia.db") as s:
+            s.load(999)
+    with pytest.raises(sqlite3.ProgrammingError):
+        s.db.execute("SELECT 1")

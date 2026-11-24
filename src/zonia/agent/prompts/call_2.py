@@ -2,7 +2,7 @@
 
 from zonia.agent.prompts.call_1 import LANGUAGE_NAMES_ES, field_label
 from zonia.config import local_words_for
-from zonia.domain.models import ScreeningFields, Status
+from zonia.domain.models import Country, Language, ScreeningFields, Status
 
 # Code adds the review email and the case code after the LLM's reply (zonia.agent.turn).
 NO_CONTACT = "No des ningún correo, teléfono ni código: se añaden después de tu mensaje."
@@ -33,7 +33,7 @@ ZONE_DIRECTIVE = (
 )
 
 
-def directive(status: Status, fields: ScreeningFields, country: str = "ES") -> str | None:
+def directive(status: Status, fields: ScreeningFields, country: Country = "ES") -> str | None:
     """The instruction for call 2, or None. A disqualified candidate with a licence was cut by zone."""
     if status == Status.DISQUALIFIED and fields.driver_license is not False:
         return ZONE_DIRECTIVE
@@ -41,7 +41,7 @@ def directive(status: Status, fields: ScreeningFields, country: str = "ES") -> s
     return text.format(**local_words_for(country)) if text else None
 
 
-def invalid_directive(problems: dict[str, str], country: str = "ES") -> str:
+def invalid_directive(problems: dict[str, str], country: Country = "ES") -> str:
     """The instruction for call 2 when code dropped a value the candidate gave."""
     lines = [f"- {field_label(name, country)}: {reason}" for name, reason in problems.items()]
     return "\n".join([
@@ -52,6 +52,6 @@ def invalid_directive(problems: dict[str, str], country: str = "ES") -> str:
     ])
 
 
-def reply_language(language: str) -> str:
+def reply_language(language: Language) -> str:
     """The line added to every call 2 instruction: call 1 already decided the language."""
     return f"Responde en {LANGUAGE_NAMES_ES[language]}."

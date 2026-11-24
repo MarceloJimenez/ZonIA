@@ -1,7 +1,7 @@
 """The summary message: the candidate's data, one field per line. Code writes it, so the data is exact."""
 
 from zonia.config import local_words_for
-from zonia.domain.models import ScreeningFields
+from zonia.domain.models import Country, Language, ScreeningFields
 from zonia.texts.labels import AVAILABILITY, MONTHS, SCHEDULE
 
 # The words of the summary, per language.
@@ -21,13 +21,13 @@ SUMMARY_TEXT = {
 }
 
 
-def _date(d, language: str) -> str:
+def _date(d, language: Language) -> str:
     if language == "en":
         return f"{MONTHS["en"][d.month - 1]} {d.day}, {d.year}"
     return f"{d.day} de {MONTHS["es"][d.month - 1]} de {d.year}"
 
 
-def render_summary(fields: ScreeningFields, language: str = "es", country: str = "ES") -> str:
+def render_summary(fields: ScreeningFields, language: Language = "es", country: Country = "ES") -> str:
     """The summary message, one field per line, in Spanish ("es") or English ("en").
 
     In Spanish, the licence uses the country's word: "Carné de conducir" in Spain, "Licencia de manejo" in Mexico.

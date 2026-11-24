@@ -9,7 +9,7 @@ from pydantic_ai import Agent
 from pydantic_ai.exceptions import ModelAPIError, ModelHTTPError
 
 from zonia.agent.schema import Turn
-from zonia.agent.turn import TurnResult, run_turn
+from zonia.agent.turn import ReplySource, TurnResult, run_turn
 from zonia.config import MAX_TURNS, contact_email_for
 from zonia.domain.conversation import Conversation
 from zonia.domain.flow import FINAL_STATUSES
@@ -63,7 +63,7 @@ async def run_turn_safely(
             c.status = Status.INCOMPLETE
         return TurnResult(
             message=text, reply=LIMIT_REPLY[c.language].format(email=contact_email_for(c.country)),
-            intent=Intent.NONE, stage=c.stage, status=c.status, language=c.language, llm_calls=0, reply_source="limit",
+            intent=Intent.NONE, stage=c.stage, status=c.status, language=c.language, llm_calls=0, reply_source=ReplySource.LIMIT,
         )
 
     loop = asyncio.get_running_loop()
@@ -95,5 +95,5 @@ async def run_turn_safely(
             c.status = Status.TECHNICAL_ERROR
     return TurnResult(
         message=text, reply=reply, intent=Intent.NONE, stage=c.stage, status=c.status, language=c.language,
-        llm_calls=0, reply_source="fallback",
+        llm_calls=0, reply_source=ReplySource.FALLBACK,
     )

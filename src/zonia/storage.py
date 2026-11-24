@@ -17,7 +17,7 @@ from pathlib import Path
 from pydantic_ai.messages import ModelMessagesTypeAdapter
 
 from zonia.domain.conversation import Conversation, new_case_code
-from zonia.domain.models import RecruiterOutcome, ScreeningFields, Stage, Status
+from zonia.domain.models import RecruiterOutcome, Role, ScreeningFields, Stage, Status
 
 # The newest outcome the recruiter set for the conversation (c is the conversations row).
 LATEST_OUTCOME = (
@@ -139,8 +139,8 @@ class Storage:
                 (conversation.country, phone, *self._state(conversation), now, now, now),
             )
             self.db.executemany(
-                "INSERT INTO messages (conversation_id, role, text, created_at) VALUES (?, 'agent', ?, ?)",
-                [(cursor.lastrowid, text, now) for text in agent_messages],
+                "INSERT INTO messages (conversation_id, role, text, created_at) VALUES (?, ?, ?, ?)",
+                [(cursor.lastrowid, Role.AGENT, text, now) for text in agent_messages],
             )
         return cursor.lastrowid
 
@@ -186,8 +186,8 @@ class Storage:
             self.db.executemany(
                 "INSERT INTO messages (conversation_id, role, text, external_id, created_at) VALUES (?, ?, ?, ?, ?)",
                 [
-                    (conversation_id, "candidate", message, external_id, now),
-                    (conversation_id, "agent", reply, None, now),
+                    (conversation_id, Role.CANDIDATE, message, external_id, now),
+                    (conversation_id, Role.AGENT, reply, None, now),
                 ],
             )
 
@@ -234,8 +234,8 @@ class Storage:
                 raise KeyError(conversation_id)
             if reminder is not None:
                 self.db.execute(
-                    "INSERT INTO messages (conversation_id, role, text, created_at) VALUES (?, 'agent', ?, ?)",
-                    (conversation_id, reminder, now),
+                    "INSERT INTO messages (conversation_id, role, text, created_at) VALUES (?, ?, ?, ?)",
+                    (conversation_id, Role.AGENT, reminder, now),
                 )
 
     def conversations(self) -> list[ConversationRow]:

@@ -39,6 +39,7 @@ from zonia.agent.schema import Turn
 from zonia.storage import Storage
 from zonia.texts.replies import TEXT_ONLY_REPLY
 from zonia.domain.conversation import new_conversation
+from zonia.domain.models import Role
 from zonia.agent.safety import run_turn_safely
 
 logger = logging.getLogger(__name__)
@@ -196,10 +197,10 @@ def create_app(
             if conversation_id is None:
                 raise HTTPException(status_code=404)
             messages = storage.messages(conversation_id)
-        if all(role == "agent" for role, _ in messages):
+        if all(role == Role.AGENT for role, _ in messages):
             first_message = " ".join(text for _, text in messages)
         else:
-            first_message = next(text for role, text in reversed(messages) if role == "agent")
+            first_message = next(text for role, text in reversed(messages) if role == Role.AGENT)
         context = {"case_code": case_code, "messages": messages, "agent_id": elevenlabs_agent_id, "first_message": first_message}
         return templates.TemplateResponse(request, "voice.html", context)
 

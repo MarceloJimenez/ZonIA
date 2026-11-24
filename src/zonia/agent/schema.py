@@ -1,12 +1,12 @@
 """The shape of call 1's reply: Turn and turn_model. Its Spanish descriptions are text the LLM reads."""
 
 from functools import cache
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field, create_model, model_validator
 
 from zonia.config import zones_for
-from zonia.domain.models import OUTSIDE_ZONE, Intent, Language, ScreeningFields
+from zonia.domain.models import OUTSIDE_ZONE, Country, Intent, Language, ScreeningFields
 
 
 class Turn(BaseModel):
@@ -33,7 +33,7 @@ SERVICE_ZONE_DESCRIPTION = (
 
 
 @cache
-def turn_model(country: str) -> type[Turn]:
+def turn_model(country: Country) -> type[Turn]:
     """Turn for one country: service_zone accepts only that country's zones or OUTSIDE_ZONE.
 
     Any other value fails validation, and Pydantic AI asks the LLM again.
@@ -43,7 +43,7 @@ def turn_model(country: str) -> type[Turn]:
         f"ScreeningFields{country}",
         __base__=ScreeningFields,
         __validators__={"_zone_with_place": model_validator(mode="after")(_zone_with_place)},
-        service_zone=(Optional[zone], Field(None, description=SERVICE_ZONE_DESCRIPTION)),
+        service_zone=(zone | None, Field(None, description=SERVICE_ZONE_DESCRIPTION)),
     )
     return create_model(f"Turn{country}", __base__=Turn, fields=(fields_model, ...))
 

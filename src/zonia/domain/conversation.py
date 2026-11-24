@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
 
 from zonia.config import GREETING
-from zonia.domain.models import ScreeningFields, Stage, Status
+from zonia.domain.models import Country, Language, ScreeningFields, Stage, Status
 
 
 @dataclass
@@ -21,11 +21,11 @@ class Conversation:
     fields: ScreeningFields = field(default_factory=ScreeningFields)
     stage: Stage = Stage.INTRODUCTION
     status: Status = Status.ACTIVE
-    country: str = "ES"  # "ES" or "MX"; decides the service zones
+    country: Country = "ES"
     failed_turns: int = 0  # turns in a row that ended in a technical failure
     case_code: str | None = None  # storage gives it; the candidate gets it on disqualification
     turns: int = 0  # candidate messages so far, failed turns included
-    language: str = "es"  # "es" or "en": the language of the candidate's last message
+    language: Language = "es"  # the language of the candidate's last message
     followup_step: int = 0  # follow-up steps done since the candidate's last message (zonia.followups)
 
     def add_agent_message(self, text: str) -> None:
@@ -43,7 +43,7 @@ def new_case_code() -> str:
     return f"{chars[:4]}-{chars[4:]}"
 
 
-def new_conversation(country: str = "ES") -> Conversation:
+def new_conversation(country: Country = "ES") -> Conversation:
     """A conversation that starts with Sonia's greeting.
 
     The greeting is in the history, so on turn 1 the LLM knows what Sonia asked.

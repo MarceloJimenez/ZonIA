@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from zonia import settings
-from zonia.config import FOLLOW_UPS, FOLLOW_UPS_NO_REPLY
+from zonia.config import FOLLOW_UPS, FOLLOW_UPS_NO_REPLY, FollowUpStep
 from zonia.domain.models import Status
 from zonia.storage import Storage
 from zonia.domain.conversation import Conversation
@@ -47,7 +47,7 @@ class FollowUp:
     """One step done, for the log."""
 
     conversation_id: int
-    step: str  # "reminder", "pause" or "incomplete"
+    step: FollowUpStep
     reminder: str | None
 
 
@@ -61,12 +61,12 @@ def run_followups(storage: Storage, now: datetime) -> list[FollowUp]:
             continue
         step = steps_for(c)[i][1]
         reminder = None
-        if step == "reminder":
+        if step == FollowUpStep.REMINDER:
             reminder = reminder_text(c)
             c.add_agent_message(reminder)
-        elif step == "pause":
+        elif step == FollowUpStep.PAUSE:
             c.status = Status.PAUSED
-        elif step == "incomplete":
+        elif step == FollowUpStep.INCOMPLETE:
             c.status = Status.INCOMPLETE
         c.followup_step = i + 1
         storage.save_followup(conversation_id, c, reminder)

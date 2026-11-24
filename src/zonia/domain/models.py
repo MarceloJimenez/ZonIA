@@ -1,8 +1,9 @@
-"""Models for Zonia"""
+"""The business types: stages, statuses, intents, recruiter outcomes, message roles, countries, languages,
+and the candidate's fields (ScreeningFields)."""
 
 from datetime import date
 from enum import StrEnum
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -44,16 +45,23 @@ class Intent(StrEnum):
     CORRECTS_SUMMARY = "corrects_summary"
 
 
+class Role(StrEnum):
+    """Who wrote a message in the conversation."""
+
+    CANDIDATE = "candidate"
+    AGENT = "agent"  # Sonia, or code writing as Sonia
+
+
 class ScreeningFields(BaseModel):
-    full_name: Optional[str] = Field(
+    full_name: str | None = Field(
         None,
         description="Nombre y apellidos con mayúscula inicial (por ejemplo \"María Fernanda Torres\"), "
         "aunque el candidato lo escriba en minúsculas.",
     )
 
-    driver_license: Optional[bool] = None
+    driver_license: bool | None = None
 
-    license_type: Optional[str] = Field(
+    license_type: str | None = Field(
         None,
         description=(
             "Para qué vehículos es el carné, con las palabras del candidato (por ejemplo \"moto\", \"coche\" "
@@ -61,7 +69,7 @@ class ScreeningFields(BaseModel):
         ),
     )
 
-    city_zone: Optional[str] = Field(
+    city_zone: str | None = Field(
         None,
         description=(
             "Lugar donde vive, con las palabras del candidato. Si es vago (por ejemplo \"cerca del centro\"), "
@@ -70,9 +78,9 @@ class ScreeningFields(BaseModel):
     )
 
     # Filled together with city_zone. turn_model() narrows it to the country's zones.
-    service_zone: Optional[str] = None
+    service_zone: str | None = None
 
-    availability: Optional[list[Literal["full-time", "part-time", "weekends"]]] = Field(
+    availability: list[Literal["full-time", "part-time", "weekends"]] | None = Field(
         None,
         description=(
             "Rellénalo solo si el candidato dice claramente una o más de estas opciones: tiempo completo (full-time), "
@@ -82,17 +90,17 @@ class ScreeningFields(BaseModel):
         ),
     )
 
-    schedule: Optional[list[Literal["morning", "afternoon", "evening", "flexible"]]] = None
+    schedule: list[Literal["morning", "afternoon", "evening", "flexible"]] | None = None
 
-    experience_years: Optional[float] = None
+    experience_years: float | None = None
 
-    experience_platform: Optional[str] = Field(
+    experience_platform: str | None = Field(
         None,
         description="Plataforma o empresa donde trabajó, con su nombre bien escrito (por ejemplo \"Rappi\", "
         "\"Uber Eats\"), aunque el candidato lo escriba en minúsculas.",
     )
 
-    start_date: Optional[date] = Field(
+    start_date: date | None = Field(
         None,
         description=(
             "Si el candidato no dice el año, usa la próxima vez que llega esa fecha, contando desde hoy: "
@@ -106,4 +114,5 @@ class ScreeningFields(BaseModel):
         return self.full_name.split()[0] if self.full_name else None
 
 
+Country = Literal["ES", "MX"]  # the countries Sonia serves; decides the service zones and the local words
 Language = Literal["es", "en"]  # the languages Sonia speaks (docs/ASSIGNMENT.md:94)

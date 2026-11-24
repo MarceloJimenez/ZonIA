@@ -14,6 +14,7 @@ and the fixed texts written by code use it.
 
 from dataclasses import replace
 from datetime import date
+from enum import StrEnum
 
 from pydantic import BaseModel
 from pydantic_ai import Agent
@@ -25,10 +26,20 @@ from zonia.agent.schema import Turn, turn_model
 from zonia.config import contact_email_for
 from zonia.domain.conversation import Conversation, new_case_code
 from zonia.domain.flow import FINAL_STATUSES, decide
-from zonia.domain.models import Intent, ScreeningFields, Stage, Status
+from zonia.domain.models import Intent, Language, ScreeningFields, Stage, Status
 from zonia.domain.validation import validate
 from zonia.texts.replies import REVIEW_REPLY
 from zonia.texts.summary import render_summary
+
+
+class ReplySource(StrEnum):
+    """Who wrote the reply of a turn."""
+
+    CALL_1 = "call_1"
+    CALL_2 = "call_2"
+    SUMMARY = "summary"  # code wrote the summary
+    FALLBACK = "fallback"  # the turn failed: a fixed reply
+    LIMIT = "limit"  # the turn limit was reached: a fixed reply
 
 
 class TurnResult(BaseModel):
@@ -39,9 +50,9 @@ class TurnResult(BaseModel):
     intent: Intent
     stage: Stage
     status: Status
-    language: str  # "es" or "en": the language of the reply
-    llm_calls: int  # 0 when the turn failed ("fallback") or the turn limit was reached ("limit")
-    reply_source: str  # "call_1", "call_2", "summary", "fallback" or "limit"
+    language: Language  # the language of the reply
+    llm_calls: int  # 0 when the turn failed (FALLBACK) or the turn limit was reached (LIMIT)
+    reply_source: ReplySource
     invalid_fields: list[str] = []  # values the candidate gave that code dropped
 
 
@@ -73,12 +84,12 @@ async def run_turn(
             text, message_history=c.history, output_type=str,
             instructions=f"{call_2_directive}\n\n{local_words(c.country)}\n\n{reply_language(language)}",
         )
-        reply, history, calls, source = result_2.output, result_2.all_messages(), 2, "call_2"
+        reply, history, calls, source = result_2.output, result_2.all_messages(), 2, ReplySource.CALL_2
     elif _shows_summary(c, stage, status, intent, fields):
         reply = render_summary(fields, language, c.country)
-        history, calls, source = _summary_history(c, text, reply), 1, "summary"
+        history, calls, source = _summary_history(c, text, reply), 1, ReplySource.SUMMARY
     else:
-        reply, history, calls, source = result.output.reply, result.all_messages(), 1, "call_1"
+        reply, history, calls, source = result.output.reply, result.all_messages(), 1, ReplySource.CALL_1
 
     case_code = c.case_code
     if status == Status.DISQUALIFIED and status != c.status:
@@ -136,7 +147,7 @@ def _summary_history(c: Conversation, text: str, reply: str) -> list:
     ]
 
 
-def _add_review(c: Conversation, reply: str, history: list, language: str) -> tuple[str, list, str]:
+def _add_review(c: Conversation, reply: str, history: list, language: Language) -> tuple[str, list, str]:
     """A new disqualification: code adds the review email and the case code, so both are exact.
 
     This always follows call 2, so the last history message is call 2's reply.

@@ -4,7 +4,7 @@ from datetime import date
 
 from zonia.config import JOB_FACTS, local_words_for
 from zonia.domain.flow import FIELD_ORDER, open_fields
-from zonia.domain.models import ScreeningFields
+from zonia.domain.models import Country, Language, ScreeningFields
 from zonia.texts.labels import AVAILABILITY, MONTHS, SCHEDULE, WEEKDAYS
 
 # {license} and {area} are the country's words (config.LOCAL_WORDS), filled by field_label().
@@ -36,12 +36,12 @@ CLOSING_RULES = (
 )
 
 
-def field_label(name: str, country: str) -> str:
+def field_label(name: str, country: Country) -> str:
     """How the prompt names a field, with the country's words."""
     return FIELD_LABELS_ES[name].format(**local_words_for(country))
 
 
-def local_words(country: str) -> str:
+def local_words(country: Country) -> str:
     """The line that tells every call which words to use for the licence and the area."""
     words = local_words_for(country)
     return (
@@ -81,7 +81,7 @@ def facts_section(facts: list[str]) -> str:
     ])
 
 
-def language_section(language: str) -> str:
+def language_section(language: Language) -> str:
     """Which language call 1 replies in. Design: docs/plans/Process design draft.md, section 4.3."""
     current = LANGUAGE_NAMES_ES[language]
     return (
@@ -95,7 +95,7 @@ def language_section(language: str) -> str:
 
 
 def turn_instructions(
-    fields: ScreeningFields, today: date, facts: list[str] = JOB_FACTS, language: str = "es", country: str = "ES"
+    fields: ScreeningFields, today: date, facts: list[str] = JOB_FACTS, language: Language = "es", country: Country = "ES"
 ) -> str:
     """What call 1 must know this turn: today's date, the language and the country's words,
     the known fields, the open ones in order, and the job facts."""

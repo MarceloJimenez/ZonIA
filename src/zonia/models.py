@@ -38,7 +38,11 @@ class Intent(StrEnum):
 
 
 class ScreeningFields(BaseModel):
-    full_name: Optional[str] = None
+    full_name: Optional[str] = Field(
+        None,
+        description="Nombre y apellidos con mayúscula inicial (por ejemplo \"María Fernanda Torres\"), "
+        "aunque el candidato lo escriba en minúsculas.",
+    )
 
     driver_license: Optional[bool] = None
 
@@ -75,7 +79,11 @@ class ScreeningFields(BaseModel):
 
     experience_years: Optional[float] = None
 
-    experience_platform: Optional[str] = None
+    experience_platform: Optional[str] = Field(
+        None,
+        description="Plataforma o empresa donde trabajó, con su nombre bien escrito (por ejemplo \"Rappi\", "
+        "\"Uber Eats\"), aunque el candidato lo escriba en minúsculas.",
+    )
 
     start_date: Optional[date] = Field(
         None,

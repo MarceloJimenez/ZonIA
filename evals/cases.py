@@ -184,6 +184,27 @@ CASES = [
         ),
     ),
     Case(
+        name="voice_lowercase",
+        inputs=Script(
+            messages=[
+                "hola soy maría fernanda torres",
+                "sí tengo licencia de manejo y vivo en la colonia narvarte en la ciudad de méxico",
+                "medio tiempo por las mañanas",
+                "trabajé un año en rappi",
+                f"puedo empezar el {spoken(CARLOS_START)}",
+            ],
+            country="MX",
+        ),
+        evaluators=(
+            SummaryAt(4),
+            Judge(
+                "proper names with capitals",
+                "In the summary Sonia shows, the name is written \"María Fernanda Torres\" "
+                "and the platform is written \"Rappi\".",
+            ),
+        ),
+    ),
+    Case(
         name="availability_specific_weekdays",
         inputs=Script(messages=[*ANA[:2], "puedo martes miercoles y jueves"]),
         evaluators=(

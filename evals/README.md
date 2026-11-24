@@ -57,6 +57,7 @@ Code checks are used for everything that can be measured exactly. The LLM judge 
 | `reopens_after_outside_zone` | A candidate disqualified by zone who then says "Barcelona" goes back to data collection, with the zone "Cataluña". |
 | `first_name_only` | "Soy Ana" is not saved: the name needs a surname. The conversation stays in introduction and Sonia asks for the surname. |
 | `vague_zone` | "Cerca del centro" saves no zone and does not disqualify. Sonia asks for the city. |
+| `voice_lowercase` | A voice call in lowercase (Mexico) gives a summary with capitals in the name and the platform. |
 | `availability_specific_weekdays` | "Puedo martes miercoles y jueves" saves no availability. Sonia asks the candidate to choose full-time, part-time or weekends. |
 | `availability_other_weekdays` | The same with "puedo lunes miercoles y viernes". |
 | `past_start_date` | A date in the past is not saved. Sonia says it has passed and asks for a new one. |

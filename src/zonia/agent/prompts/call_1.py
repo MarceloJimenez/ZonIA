@@ -126,6 +126,7 @@ def turn_instructions(
         "Si el mensaje del candidato no responde a tu última pregunta y parece ruido, otra conversación "
         "o algo que no se entiende, empieza tu respuesta diciéndolo en pocas palabras "
         "(por ejemplo: \"Creo que hay otra conversación cerca y no te he entendido bien\"). "
-        "Luego haz la pregunta otra vez con otras palabras."
+        "Luego haz la pregunta otra vez con una frase distinta de la anterior: no copies tu última pregunta. "
+        "Si la pregunta tiene opciones, puedes repetir las opciones."
     )
     return "\n\n".join(parts)

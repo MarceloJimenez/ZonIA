@@ -53,6 +53,7 @@ NO_REPLY_REMINDER = (
 JOB_FACTS = [
     "El puesto es de repartidor.",
     "Los datos sirven para revisar la solicitud de repartidor.",
+    "Grupo Sazón está en España y en México.",
 ]
 
 

@@ -10,26 +10,27 @@ NO_CONTACT = "No des ningún correo, teléfono ni código: se añaden después d
 DIRECTIVES = {
     # {license} is filled per country by directive().
     Status.DISQUALIFIED: (
-        "El candidato no puede continuar porque el puesto exige {license}. "
-        "Díselo directamente, de tú y con amabilidad, usando \"lamentablemente\". "
-        f"Agradécele su tiempo y no hagas más preguntas. {NO_CONTACT}"
+        "Dile al candidato, hablándole de tú y con amabilidad, que lamentablemente no puede seguir "
+        "porque el puesto exige {license}. "
+        f"Dale las gracias por su tiempo y no hagas más preguntas. {NO_CONTACT}"
     ),
     Status.WITHDRAWN: (
-        "El candidato no quiere continuar. Agradécele su tiempo y despídete. No hagas más preguntas."
+        "El candidato no quiere seguir. Dale las gracias por su tiempo, de tú, y despídete. "
+        "No hagas más preguntas."
     ),
     Status.PAUSED: (
-        "El candidato no puede seguir ahora. Confírmale que le escribirás más tarde y despídete."
+        "El candidato no puede seguir ahora. Dile, de tú, que le escribirás más tarde, y despídete."
     ),
     Status.QUALIFIED: (
-        "El candidato ha confirmado sus datos. Agradécele y dile que el equipo de selección "
-        "revisará su candidatura y le contactará. No hagas más preguntas."
+        "El candidato ha confirmado sus datos. Dale las gracias y dile, de tú, que el equipo de selección "
+        "revisará su candidatura y se pondrá en contacto con él. No hagas más preguntas."
     ),
 }
 
 ZONE_DIRECTIVE = (
-    "El candidato vive fuera de las zonas donde Grupo Sazón tiene servicio. "
-    "Díselo directamente, de tú y con amabilidad, usando \"lamentablemente\". "
-    f"Agradécele su tiempo y no hagas más preguntas. {NO_CONTACT}"
+    "Dile al candidato, hablándole de tú y con amabilidad, que lamentablemente no puede seguir "
+    "porque vive fuera de las zonas donde Grupo Sazón tiene servicio. "
+    f"Dale las gracias por su tiempo y no hagas más preguntas. {NO_CONTACT}"
 )
 
 

@@ -59,20 +59,31 @@ class ScreeningFields(BaseModel):
         "aunque el candidato lo escriba en minúsculas.",
     )
 
-    driver_license: bool | None = None
+    driver_license: bool | None = Field(
+        None,
+        description=(
+            "true si el candidato dice que tiene permiso para conducir, con cualquier palabra y en los dos países: "
+            "carné, carnet, licencia, licencia de manejo o permiso de conducir. false si dice que no lo tiene."
+        ),
+    )
 
     license_type: str | None = Field(
         None,
         description=(
             "Para qué vehículos es el carné, con las palabras del candidato (por ejemplo \"moto\", \"coche\" "
-            "o \"profesional\"). Opcional: rellénalo solo si el candidato lo dice. Nunca lo preguntes aparte."
+            "o \"profesional\"). Solo el vehículo: nunca la palabra carné, carnet ni licencia. "
+            "Opcional: rellénalo solo si el candidato lo dice. Nunca lo preguntes aparte."
         ),
     )
 
     city_zone: str | None = Field(
         None,
         description=(
-            "Lugar donde vive, con las palabras del candidato. Si es vago (por ejemplo \"cerca del centro\"), "
+            "Lugar donde vive: el barrio o la colonia y la ciudad, separados por una coma y con los nombres "
+            "bien escritos (por ejemplo \"Gràcia, Barcelona\" o \"Coyoacán, Ciudad de México\"), aunque el "
+            "candidato escriba abreviaturas como \"bcn\" o \"CDMX\". Si dice solo una ciudad que está fuera "
+            f"de todas las zonas de servicio, pon la ciudad y service_zone '{OUTSIDE_ZONE}', y no preguntes "
+            "el barrio ni la colonia. Si es vago (por ejemplo \"cerca del centro\"), "
             "déjalo vacío, deja vacío service_zone y pregunta la ciudad y el barrio o la colonia."
         ),
     )
@@ -103,7 +114,8 @@ class ScreeningFields(BaseModel):
     start_date: date | None = Field(
         None,
         description=(
-            "Si el candidato no dice el año, usa la próxima vez que llega esa fecha, contando desde hoy: "
+            "Si el candidato dice el año, usa ese año, aunque la fecha ya haya pasado: el código la comprueba. "
+            "Si no dice el año, usa la próxima vez que llega esa fecha, contando desde hoy: "
             "si este año ya pasó, es la del año que viene."
         ),
     )

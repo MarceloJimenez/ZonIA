@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from test_turn import FakeLLM, make_agent
 from test_whatsapp import FakeSender
-from zonia.adapters.http import create_app
+from zonia.adapters.app import create_app
 from zonia.config import GREETING
 from zonia.storage import Storage
 

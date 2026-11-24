@@ -21,7 +21,7 @@ dependencies = [
 zonia = "zonia.cli:main"
 zonia-dashboard = "zonia.dashboard:main"
 zonia-followups = "zonia.followups:main"
-zonia-server = "zonia.adapters.http:main"
+zonia-server = "zonia.adapters.app:main"
 
 [build-system]
 requires = ["uv_build>=0.9.13,<0.10.0"]

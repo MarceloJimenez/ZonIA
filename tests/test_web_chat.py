@@ -10,8 +10,9 @@ from fastapi.testclient import TestClient
 
 from test_turn import FakeLLM, make_agent
 from test_whatsapp import FakeSender, hanging_agent
-from zonia.adapters import http
-from zonia.adapters.http import DEMO_PHONE, DEMO_PHONES, PHONE_ERROR, country_for, create_app
+from zonia.adapters import conversations
+from zonia.adapters.app import create_app
+from zonia.adapters.web import DEMO_PHONE, DEMO_PHONES, PHONE_ERROR, country_for
 from zonia.config import GREETING, JOB_FACTS, zones_for
 from zonia.storage import Storage
 from zonia.texts.replies import FAILURE_REPLY
@@ -87,7 +88,7 @@ def test_a_chat_message_runs_a_turn_and_the_reply_is_returned_and_saved(db):
 
 
 def test_an_llm_that_does_not_answer_in_time_gives_the_failure_reply(db, monkeypatch):
-    monkeypatch.setattr(http, "CHAT_TIME_LIMIT", 0.05)
+    monkeypatch.setattr(conversations, "CHAT_TIME_LIMIT", 0.05)
     test_client = client(db, FakeLLM([]), hanging_agent())
     chat_url = apply(test_client, "+34600111222")
     started = time.monotonic()

@@ -15,8 +15,9 @@ from pydantic_ai import Agent
 from pydantic_ai.models.function import FunctionModel
 
 from test_turn import FakeLLM, make_agent
-from zonia.adapters import http
-from zonia.adapters.http import WEBHOOK_PATH, create_app, e164
+from zonia.adapters import conversations
+from zonia.adapters.app import create_app
+from zonia.adapters.whatsapp import WEBHOOK_PATH, e164
 from zonia.config import GREETING
 from zonia.storage import Storage
 from zonia.domain.conversation import new_conversation
@@ -91,7 +92,7 @@ def test_a_message_runs_a_turn_and_the_reply_is_saved_and_sent(db, applied):
 
 
 def test_an_llm_that_does_not_answer_in_time_sends_the_failure_reply(db, applied, monkeypatch):
-    monkeypatch.setattr(http, "CHAT_TIME_LIMIT", 0.05)
+    monkeypatch.setattr(conversations, "CHAT_TIME_LIMIT", 0.05)
     sender = FakeSender()
     started = time.monotonic()
     response = post(client(db, FakeLLM([]), sender, hanging_agent()))

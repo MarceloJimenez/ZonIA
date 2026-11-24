@@ -11,17 +11,14 @@ from typing import Callable
 
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
 from zonia import settings
 from zonia.config import SERVICE_ZONES
+from zonia.pages import add_static_and_templates
 from zonia.domain.models import OUTSIDE_ZONE, RecruiterOutcome, ScreeningFields, Stage, Status
 from zonia.storage import ConversationRow, Storage
 from zonia.texts.labels import AVAILABILITY, SCHEDULE
 from zonia.texts.summary import render_summary
-
-HERE = Path(__file__).parent
 
 STAGE_LABELS = {Stage.INTRODUCTION: "Introduction", Stage.DATA_COLLECTION: "Data collection", Stage.CLOSING: "Closing"}
 
@@ -224,8 +221,7 @@ def _utc_now() -> datetime:
 def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) -> FastAPI:
     """clock gives the current time, for the Waiting column; tests pass a fake one."""
     app = FastAPI(title="ZonIA recruiter dashboard")
-    app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
-    templates = Jinja2Templates(directory=HERE / "templates")
+    templates = add_static_and_templates(app)
 
     def open_storage() -> Storage:
         # One connection per request: a SQLite connection must stay in the thread that opened it.

@@ -180,6 +180,11 @@ class Filters:
         )
 
 
+def to_call(c: ConversationRow) -> bool:
+    """Qualified, and the recruiter has not reached the candidate yet: no outcome, or "No answer"."""
+    return c.status == Status.QUALIFIED and c.outcome in (None, RecruiterOutcome.NO_ANSWER)
+
+
 def _choice(name: str, value: str | None, allowed) -> str | None:
     """An empty value means "all". A value outside the allowed ones is an error (422)."""
     if not value:
@@ -212,7 +217,10 @@ def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) ->
         availability: str | None = None,
         schedule: str | None = None,
         q: str | None = None,
+        view: str | None = None,
     ):
+        """view "all" lists every conversation. Without it, the page lists the candidates to call."""
+        view = _choice("view", view, {"all"}) or "to_call"
         status = _choice("status", status, {s.value for s in Status})
         filters = Filters(
             status=None if status is None else Status(status),
@@ -227,8 +235,13 @@ def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) ->
             every = storage.conversations()
         finally:
             storage.close()
-        shown = [c for c in every if filters.matches(c)]
-        shown.sort(key=lambda c: c.status != Status.QUALIFIED)  # qualified first; sort is stable, so newest next
+        if view == "to_call":
+            pool = [c for c in every if to_call(c)]
+            shown = sorted((c for c in pool if filters.matches(c)), key=lambda c: c.updated_at)  # longest wait first
+        else:
+            pool = every
+            shown = [c for c in every if filters.matches(c)]
+            shown.sort(key=lambda c: c.status != Status.QUALIFIED)  # qualified first; sort is stable, so newest next
         options = {
             "status": [(s.value, status_label(s)) for s in Status],
             "country": [(country, country) for country in SERVICE_ZONES],
@@ -241,7 +254,8 @@ def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) ->
             "list.html",
             {
                 "rows": [list_row(c, clock()) for c in shown],
-                "total": len(every),
+                "total": len(pool),
+                "view": view,
                 "filters": filters,
                 "options": options,
                 "outside_zone": OUTSIDE_ZONE,

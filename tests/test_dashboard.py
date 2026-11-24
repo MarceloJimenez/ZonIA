@@ -50,7 +50,7 @@ def names_in_order(html: str, names: list[str]) -> list[str]:
 
 
 def test_the_list_shows_every_conversation_qualified_first_then_newest(client):
-    response = client.get("/")
+    response = client.get("/?view=all")
     assert response.status_code == 200
     assert "3 of 3 conversations" in response.text
     assert names_in_order(response.text, ["Luis Pérez", "Ana López", "Marta Gil"]) == [
@@ -59,7 +59,7 @@ def test_the_list_shows_every_conversation_qualified_first_then_newest(client):
 
 
 def test_the_status_filter_shows_only_that_status(client):
-    response = client.get("/?status=disqualified")
+    response = client.get("/?view=all&status=disqualified")
     assert "1 of 3 conversations" in response.text
     assert "Marta Gil" in response.text
     assert "Ana López" not in response.text
@@ -81,34 +81,34 @@ def test_the_status_filter_shows_only_that_status(client):
     ],
 )
 def test_the_filters_show_only_the_matching_candidates(client, query, shown):
-    html = client.get(f"/?{query}").text
+    html = client.get(f"/?view=all&{query}").text
     assert f"{len(shown)} of 3 conversations" in html
     for name in ["Luis Pérez", "Ana López", "Marta Gil"]:
         assert (f">{name}</a>" in html) == (name in shown)
 
 
 def test_the_form_keeps_the_chosen_filters(client):
-    html = client.get("/?country=ES&zone=Comunidad+de+Madrid&q=ana").text
+    html = client.get("/?view=all&country=ES&zone=Comunidad+de+Madrid&q=ana").text
     assert '<option value="ES" selected>' in html
     assert '<option value="Comunidad de Madrid" selected>' in html
     assert 'value="ana"' in html
 
 
 def test_the_filter_icon_shows_how_many_lists_are_chosen(client):
-    assert '<span class="filter-count">2</span>' in client.get("/?country=ES&schedule=morning&q=ana").text
-    html = client.get("/?q=ana").text
+    assert '<span class="filter-count">2</span>' in client.get("/?view=all&country=ES&schedule=morning&q=ana").text
+    html = client.get("/?view=all&q=ana").text
     assert "filter-count" not in html
     assert ">Clear</a>" in html
-    assert ">Clear</a>" not in client.get("/").text
+    assert ">Clear</a>" not in client.get("/?view=all").text
 
 
 @pytest.mark.parametrize("query", ["country=FR", "zone=Lima", "availability=nights", "schedule=night"])
 def test_an_unknown_filter_value_is_rejected(client, query):
-    assert client.get(f"/?{query}").status_code == 422
+    assert client.get(f"/?view=all&{query}").status_code == 422
 
 
 def test_an_unknown_status_is_rejected(client):
-    assert client.get("/?status=hired").status_code == 422
+    assert client.get("/?view=all&status=hired").status_code == 422
 
 
 def test_the_detail_shows_the_fields_the_summary_and_the_messages_in_order(client):
@@ -139,7 +139,7 @@ def test_the_detail_shows_the_case_code(client):
 
 
 def test_the_list_shows_the_phone_as_a_call_link(client):
-    html = client.get("/").text
+    html = client.get("/?view=all").text
     assert '<a href="tel:+34600111222">+34600111222</a>' in html
 
 
@@ -149,7 +149,7 @@ def test_the_detail_has_a_call_button_only_when_there_is_a_phone(client):
 
 
 def test_the_list_shows_the_columns_the_recruiter_decides_with(client):
-    html = client.get("/").text
+    html = client.get("/?view=all").text
     for header in ["Zone", "Availability", "Schedule", "Experience", "Start date", "Waiting"]:
         assert f"<th>{header}</th>" in html
     for gone in ["Country", "Stage", "Started", "Last message"]:
@@ -186,7 +186,7 @@ def test_the_waiting_column_counts_from_the_last_turn(tmp_path):
     storage.create(Conversation(fields=ScreeningFields(full_name="Rosa Díaz")))
     storage.close()
     client = TestClient(create_app(path, clock=lambda: saved + timedelta(hours=5)))
-    assert '<td class="soft nowrap">5 h</td>' in client.get("/").text
+    assert '<td class="soft nowrap">5 h</td>' in client.get("/?view=all").text
 
 
 def test_the_recruiter_sets_an_outcome_with_a_note(client):
@@ -234,6 +234,53 @@ def test_the_storage_keeps_every_recruiter_update_and_gives_the_newest_outcome(t
         storage.add_recruiter_update(999, RecruiterOutcome.CALLED, None)
 
 
+def test_the_home_page_lists_only_the_qualified_candidates_to_call(client):
+    html = client.get("/").text
+    assert "1 of 1 candidates to call" in html
+    assert ">Ana López</a>" in html
+    assert ">Luis Pérez</a>" not in html and ">Marta Gil</a>" not in html
+    assert '<a href="/" aria-current="page">To call</a>' in html
+    assert 'name="status"' not in html  # every row is qualified, so the status list and column are not shown
+    assert "<th>Status</th>" not in html
+
+
+@pytest.mark.parametrize(("outcome", "still_to_call"), [("no_answer", True), ("called", False), ("interview", False)])
+def test_a_candidate_leaves_to_call_once_the_recruiter_reaches_them(client, outcome, still_to_call):
+    client.post("/conversations/2/updates", data={"outcome": outcome})
+    assert (">Ana López</a>" in client.get("/").text) == still_to_call
+
+
+def test_nobody_to_call_says_so(client):
+    client.post("/conversations/2/updates", data={"outcome": "hired"})
+    assert "Nobody to call right now." in client.get("/").text
+
+
+def test_to_call_shows_the_longest_wait_first_and_keeps_the_view_when_filtering(tmp_path):
+    times = iter(datetime(2026, 11, 24, h, 0, tzinfo=UTC) for h in range(8, 20))
+    path = tmp_path / "zonia.db"
+    storage = Storage(path, clock=lambda: next(times))
+    for name, zone in [("Rosa Díaz", "Andalucía"), ("Pablo Ruiz", "Cataluña")]:
+        storage.create(Conversation(
+            fields=ScreeningFields(full_name=name, city_zone="x", service_zone=zone), status=Status.QUALIFIED,
+        ))
+    storage.close()
+    client = TestClient(create_app(path))
+    html = client.get("/").text
+    assert names_in_order(html, ["Pablo Ruiz", "Rosa Díaz"]) == ["Rosa Díaz", "Pablo Ruiz"]  # Rosa waits longer
+    html = client.get("/?zone=Catalu%C3%B1a").text
+    assert "1 of 2 candidates to call" in html
+    assert 'name="view"' not in html  # the form stays on To call
+
+
+def test_the_all_view_shows_the_recruiter_outcome(client):
+    client.post("/conversations/2/updates", data={"outcome": "no_answer"})
+    assert '<td class="soft nowrap">No answer</td>' in client.get("/?view=all").text
+
+
+def test_an_unknown_view_is_rejected(client):
+    assert client.get("/?view=mine").status_code == 422
+
+
 def test_an_unknown_id_gives_404(client):
     assert client.get("/conversations/999").status_code == 404
 
@@ -249,7 +296,7 @@ def test_a_technical_error_is_labelled_and_highlighted(tmp_path):
     storage.create(Conversation(fields=ScreeningFields(full_name="Rosa Díaz"), status=Status.TECHNICAL_ERROR))
     storage.close()
     client = TestClient(create_app(path))
-    response = client.get("/?status=technical_error")
+    response = client.get("/?view=all&status=technical_error")
     assert "Rosa Díaz" in response.text
     assert "zn-tag--alert" in response.text
     assert "Technical error" in response.text

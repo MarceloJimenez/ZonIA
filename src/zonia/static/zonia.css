@@ -49,6 +49,9 @@ td.phone { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .zn-panel__row.update .value { white-space: pre-line; }
 td.soft { color: var(--ink-2); }
 td.nowrap { white-space: nowrap; }
+.views { display: flex; gap: var(--space-4); border-bottom: 1px solid var(--line); }
+.views a { padding: 8px 2px; margin-bottom: -1px; font-size: 14px; font-weight: 600; color: var(--ink-2); text-decoration: none; border-bottom: 2px solid transparent; }
+.views a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--brand); }
 .filters { display: flex; align-items: center; gap: var(--space-3); }
 .filter-menu { position: relative; }
 .filter-toggle { list-style: none; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); color: var(--ink-2); cursor: pointer; }

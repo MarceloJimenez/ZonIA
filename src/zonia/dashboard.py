@@ -10,8 +10,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 
 from zonia.config import SERVICE_ZONES
 from zonia.flow import render_summary
-from zonia.models import OUTSIDE_ZONE, ScreeningFields, Stage, Status
+from zonia.models import OUTSIDE_ZONE, RecruiterOutcome, ScreeningFields, Stage, Status
 from zonia.storage import ConversationRow, Storage
 
 HERE = Path(__file__).parent
@@ -28,6 +28,16 @@ STAGE_LABELS = {Stage.INTRODUCTION: "Introduction", Stage.DATA_COLLECTION: "Data
 
 AVAILABILITY_EN = {"full-time": "Full-time", "part-time": "Part-time", "weekends": "Weekends"}
 SCHEDULE_EN = {"morning": "Morning", "afternoon": "Afternoon", "evening": "Evening", "flexible": "Flexible"}
+
+OUTCOME_LABELS = {
+    RecruiterOutcome.CALLED: "Called",
+    RecruiterOutcome.NO_ANSWER: "No answer",
+    RecruiterOutcome.INTERVIEW: "Interview",
+    RecruiterOutcome.HIRED: "Hired",
+    RecruiterOutcome.REJECTED: "Rejected",
+}
+
+NOTE_MAX = 2000  # characters; a note is a few lines, not a document
 
 EMPTY = "—"
 
@@ -123,6 +133,7 @@ def list_row(c: ConversationRow, now: datetime) -> dict:
         "last": when(c.updated_at),
         "case_code": c.case_code,
         "phone": c.phone,
+        "outcome": None if c.outcome is None else OUTCOME_LABELS[c.outcome],
         "service_zone": service_zone(c.fields),
         "availability": availability(c.fields),
         "schedule": schedule(c.fields),
@@ -190,7 +201,7 @@ def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) ->
 
     def open_storage() -> Storage:
         # One connection per request: a SQLite connection must stay in the thread that opened it.
-        return Storage(db_path)
+        return Storage(db_path, clock=clock)
 
     @app.get("/", response_class=HTMLResponse)
     def candidate_list(
@@ -243,6 +254,7 @@ def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) ->
         try:
             c = storage.conversation(conversation_id)
             messages = storage.messages(conversation_id)
+            updates = storage.recruiter_updates(conversation_id)
         except KeyError:
             raise HTTPException(status_code=404, detail="No conversation with this id")
         finally:
@@ -256,8 +268,34 @@ def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) ->
                 # The summary is shown once the candidate reaches closing.
                 "summary": render_summary(c.fields, country=c.country) if c.stage == Stage.CLOSING else None,
                 "messages": messages,
+                "outcomes": list(OUTCOME_LABELS.items()),
+                "updates": [
+                    (when(moment), None if outcome is None else OUTCOME_LABELS[outcome], note)
+                    for moment, outcome, note in updates
+                ],
+                "note_max": NOTE_MAX,
             },
         )
+
+    @app.post("/conversations/{conversation_id}/updates")
+    def add_update(
+        conversation_id: int,
+        outcome: RecruiterOutcome | None = Form(None),
+        note: str = Form("", max_length=NOTE_MAX),
+    ):
+        """Save the recruiter's outcome, note, or both, then show the candidate page again."""
+        note = note.strip() or None
+        if outcome is None and note is None:
+            raise HTTPException(status_code=422, detail="Choose an outcome or write a note")
+        storage = open_storage()
+        try:
+            storage.add_recruiter_update(conversation_id, outcome, note)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="No conversation with this id")
+        finally:
+            storage.close()
+        # 303: the browser loads the page with GET, so a reload does not send the form again.
+        return RedirectResponse(f"/conversations/{conversation_id}", status_code=303)
 
     return app
 

@@ -42,6 +42,11 @@ td.name { font-weight: 600; }
 td.name a { text-decoration: none; }
 td.phone { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .page-head .call { align-self: flex-start; }
+.recruiter-form { display: grid; gap: var(--space-3); padding: var(--space-4); border-top: 1px solid var(--line); }
+.recruiter-form textarea { font: 400 14px/1.4 var(--font-sans); padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); color: var(--ink); resize: vertical; }
+.recruiter-form .zn-btn { padding: 8px 14px; font-size: 13px; }
+.recruiter-form .save-note { margin-left: auto; }
+.zn-panel__row.update .value { white-space: pre-line; }
 td.soft { color: var(--ink-2); }
 td.nowrap { white-space: nowrap; }
 .filters { display: flex; align-items: center; gap: var(--space-3); }

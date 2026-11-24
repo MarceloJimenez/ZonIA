@@ -19,6 +19,22 @@
 <div class="main">
 
 <div class="zn-panel">
+<div class="zn-panel__hd"><span>Recruiter</span>{% if row.outcome %}<span class="zn-tag outcome">{{ row.outcome }}</span>{% endif %}</div>
+<form class="recruiter-form" method="post" action="/conversations/{{ row.id }}/updates">
+<textarea name="note" rows="2" maxlength="{{ note_max }}" placeholder="Note (optional)" aria-label="Note"></textarea>
+<div class="row-wrap">
+{% for value, label in outcomes %}
+<button class="zn-btn {{ 'zn-btn--primary' if label == row.outcome else 'zn-btn--outline' }}" type="submit" name="outcome" value="{{ value.value }}">{{ label }}</button>
+{% endfor %}
+<button class="zn-btn zn-btn--outline save-note" type="submit">Save note</button>
+</div>
+</form>
+{% for moment, outcome, note in updates %}
+<div class="zn-panel__row update"><span class="label">{{ moment }}</span><span class="value">{% if outcome %}<strong>{{ outcome }}</strong>{% endif %}{% if outcome and note %} · {% endif %}{{ note or '' }}</span></div>
+{% endfor %}
+</div>
+
+<div class="zn-panel">
 <div class="zn-panel__hd"><span>Screening fields</span></div>
 {% for label, value in fields %}
 <div class="zn-panel__row"><span class="label">{{ label }}</span><span class="value">{{ value }}</span></div>

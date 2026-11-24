@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from test_turn import COMPLETE
 from zonia.dashboard import create_app, experience, field_rows, service_zone, waiting
-from zonia.models import ScreeningFields, Stage, Status
+from zonia.models import RecruiterOutcome, ScreeningFields, Stage, Status
 from zonia.storage import Storage
 from zonia.turn import Conversation, TurnResult
 
@@ -187,6 +187,51 @@ def test_the_waiting_column_counts_from_the_last_turn(tmp_path):
     storage.close()
     client = TestClient(create_app(path, clock=lambda: saved + timedelta(hours=5)))
     assert '<td class="soft nowrap">5 h</td>' in client.get("/").text
+
+
+def test_the_recruiter_sets_an_outcome_with_a_note(client):
+    response = client.post("/conversations/2/updates", data={"outcome": "interview", "note": "  Tuesday 10:00  "})
+    assert response.status_code == 200  # the client follows the 303 to the candidate page
+    assert response.url.path == "/conversations/2"
+    assert '<span class="zn-tag outcome">Interview</span>' in response.text
+    assert "<strong>Interview</strong> · Tuesday 10:00</span>" in response.text
+
+
+def test_a_note_alone_keeps_the_outcome_and_the_newest_update_is_first(client):
+    client.post("/conversations/2/updates", data={"outcome": "no_answer"})
+    html = client.post("/conversations/2/updates", data={"note": "Call again after 18:00"}).text
+    assert '<span class="zn-tag outcome">No answer</span>' in html
+    assert html.index("Call again after 18:00") < html.index("<strong>No answer</strong>")
+
+
+def test_an_update_without_outcome_or_note_is_rejected(client):
+    assert client.post("/conversations/2/updates", data={"note": "   "}).status_code == 422
+
+
+def test_an_unknown_outcome_is_rejected(client):
+    assert client.post("/conversations/2/updates", data={"outcome": "maybe"}).status_code == 422
+
+
+def test_an_update_for_an_unknown_conversation_gives_404(client):
+    assert client.post("/conversations/999/updates", data={"outcome": "called"}).status_code == 404
+
+
+def test_the_storage_keeps_every_recruiter_update_and_gives_the_newest_outcome(tmp_path):
+    times = iter(datetime(2026, 11, 24, h, 0, tzinfo=UTC) for h in range(9, 20))
+    storage = Storage(tmp_path / "zonia.db", clock=lambda: next(times))
+    conversation_id = storage.create(Conversation())
+    storage.add_recruiter_update(conversation_id, RecruiterOutcome.CALLED, None)
+    storage.add_recruiter_update(conversation_id, None, "Wants weekends only")
+    assert storage.conversation(conversation_id).outcome == RecruiterOutcome.CALLED
+    assert storage.conversations()[0].outcome == RecruiterOutcome.CALLED
+    assert [(t.hour, o, n) for t, o, n in storage.recruiter_updates(conversation_id)] == [
+        (11, None, "Wants weekends only"),
+        (10, RecruiterOutcome.CALLED, None),
+    ]
+    with pytest.raises(ValueError):
+        storage.add_recruiter_update(conversation_id, None, None)
+    with pytest.raises(KeyError):
+        storage.add_recruiter_update(999, RecruiterOutcome.CALLED, None)
 
 
 def test_an_unknown_id_gives_404(client):

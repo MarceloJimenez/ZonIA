@@ -28,6 +28,16 @@ class Status(StrEnum):
     TECHNICAL_ERROR = "technical_error"  # 2 failed turns in a row; not final: a good turn goes back to active
 
 
+class RecruiterOutcome(StrEnum):
+    """What the recruiter did with the candidate after Sonia. The recruiter sets it in the dashboard."""
+
+    CALLED = "called"
+    NO_ANSWER = "no_answer"
+    INTERVIEW = "interview"
+    HIRED = "hired"
+    REJECTED = "rejected"
+
+
 class Intent(StrEnum):
     NONE = "none"
     CONTINUE = "continue"

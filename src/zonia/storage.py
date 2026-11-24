@@ -16,8 +16,14 @@ from pathlib import Path
 
 from pydantic_ai.messages import ModelMessagesTypeAdapter
 
-from zonia.models import ScreeningFields, Stage, Status
+from zonia.models import RecruiterOutcome, ScreeningFields, Stage, Status
 from zonia.turn import Conversation, TurnResult, new_case_code
+
+# The newest outcome the recruiter set for the conversation (c is the conversations row).
+LATEST_OUTCOME = (
+    "(SELECT outcome FROM recruiter_updates u WHERE u.conversation_id = c.id AND outcome IS NOT NULL"
+    " ORDER BY u.id DESC LIMIT 1) AS outcome"
+)
 
 CASE_CODE_TRIES = 5  # a repeated code is almost impossible; 5 tries in a row is a bug
 
@@ -48,6 +54,15 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS conversations_phone ON conversations(phone);
+CREATE TABLE IF NOT EXISTS recruiter_updates (
+    id INTEGER PRIMARY KEY,
+    conversation_id INTEGER NOT NULL REFERENCES conversations(id),
+    outcome TEXT,
+    note TEXT,
+    created_at TEXT NOT NULL,
+    CHECK (outcome IS NOT NULL OR note IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS recruiter_updates_conversation ON recruiter_updates(conversation_id);
 """
 
 
@@ -68,6 +83,7 @@ class ConversationRow:
     updated_at: datetime  # the time of the last saved turn
     case_code: str  # the candidate gets it on disqualification, to ask for a human review
     phone: str | None  # E.164, for example "+34600111222"; None for the terminal chat
+    outcome: RecruiterOutcome | None  # the recruiter's newest outcome; None if there is none yet
 
 
 class Storage:
@@ -217,7 +233,8 @@ class Storage:
     def conversations(self) -> list[ConversationRow]:
         """Every conversation, newest first."""
         rows = self.db.execute(
-            "SELECT id, country, phone, stage, status, fields, case_code, created_at, updated_at FROM conversations"
+            "SELECT id, country, phone, stage, status, fields, case_code, created_at, updated_at,"
+            f" {LATEST_OUTCOME} FROM conversations c"
             " ORDER BY created_at DESC, id DESC"
         )
         return [self._row(row) for row in rows]
@@ -225,7 +242,8 @@ class Storage:
     def conversation(self, conversation_id: int) -> ConversationRow:
         """The conversation with this id, as the dashboard shows it. Raises KeyError if there is none."""
         row = self.db.execute(
-            "SELECT id, country, phone, stage, status, fields, case_code, created_at, updated_at FROM conversations WHERE id = ?",
+            "SELECT id, country, phone, stage, status, fields, case_code, created_at, updated_at,"
+            f" {LATEST_OUTCOME} FROM conversations c WHERE id = ?",
             (conversation_id,),
         ).fetchone()
         if row is None:
@@ -244,7 +262,41 @@ class Storage:
             updated_at=datetime.fromisoformat(row["updated_at"]),
             case_code=row["case_code"],
             phone=row["phone"],
+            outcome=None if row["outcome"] is None else RecruiterOutcome(row["outcome"]),
         )
+
+    def add_recruiter_update(
+        self, conversation_id: int, outcome: RecruiterOutcome | None, note: str | None
+    ) -> None:
+        """Save what the recruiter did: an outcome, a note, or both. Rows are never changed, so they are the history.
+
+        Raises KeyError if there is no conversation with this id, and ValueError if both are empty.
+        """
+        if outcome is None and not note:
+            raise ValueError("An update needs an outcome or a note")
+        try:
+            with self.db:
+                self.db.execute(
+                    "INSERT INTO recruiter_updates (conversation_id, outcome, note, created_at) VALUES (?, ?, ?, ?)",
+                    (conversation_id, None if outcome is None else outcome.value, note or None, self.clock().isoformat()),
+                )
+        except sqlite3.IntegrityError:
+            raise KeyError(conversation_id)
+
+    def recruiter_updates(self, conversation_id: int) -> list[tuple[datetime, RecruiterOutcome | None, str | None]]:
+        """(time, outcome, note) of every recruiter update of the conversation, newest first."""
+        rows = self.db.execute(
+            "SELECT outcome, note, created_at FROM recruiter_updates WHERE conversation_id = ? ORDER BY id DESC",
+            (conversation_id,),
+        )
+        return [
+            (
+                datetime.fromisoformat(row["created_at"]),
+                None if row["outcome"] is None else RecruiterOutcome(row["outcome"]),
+                row["note"],
+            )
+            for row in rows
+        ]
 
     def messages(self, conversation_id: int) -> list[tuple[str, str]]:
         """(role, text) for every message of the conversation, in order."""

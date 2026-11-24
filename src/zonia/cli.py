@@ -11,10 +11,10 @@ import sys
 
 from zonia import settings
 from zonia.config import GREETING
-from zonia.llm import build_agent, build_model
+from zonia.agent.llm import build_agent, build_model
 from zonia.storage import Storage
 from zonia.domain.conversation import new_conversation
-from zonia.turn import run_turn_safely
+from zonia.agent.safety import run_turn_safely
 
 
 def main() -> None:

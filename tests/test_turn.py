@@ -16,10 +16,13 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from zonia.config import GREETING, contact_email_for
 from zonia.texts.summary import render_summary
-from zonia.domain.models import ScreeningFields, Stage, Status, Turn
-from zonia.prompt import DIRECTIVES, SYSTEM, ZONE_DIRECTIVE, directive, turn_instructions
+from zonia.agent.schema import Turn
+from zonia.domain.models import ScreeningFields, Stage, Status
+from zonia.agent.prompts.call_1 import turn_instructions
+from zonia.agent.prompts.call_2 import DIRECTIVES, ZONE_DIRECTIVE, directive
+from zonia.agent.prompts.system import SYSTEM
 from zonia.domain.conversation import CASE_CODE_ALPHABET, Conversation, new_case_code, new_conversation
-from zonia.turn import run_turn
+from zonia.agent.turn import run_turn
 
 CALL_1_REPLY = "CALL-1 REPLY"
 CALL_2_REPLY = "CALL-2 REPLY"

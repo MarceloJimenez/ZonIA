@@ -10,10 +10,10 @@ from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.models.wrapper import WrapperModel
 
 from zonia.config import GREETING
-from zonia.llm import build_agent, build_model
+from zonia.agent.llm import build_agent, build_model
 from zonia.domain.models import ScreeningFields, Stage, Status
 from zonia.domain.conversation import new_conversation
-from zonia.turn import TurnResult, run_turn
+from zonia.agent.turn import TurnResult, run_turn
 
 SECONDS_BETWEEN_REQUESTS = 4.5  # Gemini free tier: 15 requests per minute
 RETRY_WAIT_SECONDS = 30

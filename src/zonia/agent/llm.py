@@ -7,8 +7,8 @@ from pydantic_ai.models import Model
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from zonia.domain.models import Turn
-from zonia.prompt import SYSTEM
+from zonia.agent.prompts.system import SYSTEM
+from zonia.agent.schema import Turn
 
 
 def build_model(name: str | None = None) -> OpenAIChatModel:

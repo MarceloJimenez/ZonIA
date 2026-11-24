@@ -18,8 +18,8 @@ from test_turn import FakeLLM, make_agent
 from zonia.adapters import http
 from zonia.adapters.http import WEBHOOK_PATH, create_app, e164
 from zonia.config import GREETING
-from zonia.domain.models import Turn
-from zonia.prompt import SYSTEM
+from zonia.agent.schema import Turn
+from zonia.agent.prompts.system import SYSTEM
 from zonia.storage import Storage
 from zonia.domain.conversation import new_conversation
 from zonia.texts.replies import FAILURE_REPLY, TEXT_ONLY_REPLY

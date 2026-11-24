@@ -32,7 +32,7 @@ from zonia.config import GREETING  # noqa: E402
 from zonia.domain.flow import FINAL_STATUSES  # noqa: E402
 from zonia.domain.models import Status  # noqa: E402
 from zonia.domain.conversation import new_conversation  # noqa: E402
-from zonia.turn import run_turn  # noqa: E402
+from zonia.agent.turn import run_turn  # noqa: E402
 
 REPORTS = Path(__file__).parent / "reports"
 MAX_CANDIDATE_TURNS = 20

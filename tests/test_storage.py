@@ -13,7 +13,8 @@ from zonia import storage as storage_module
 from zonia.storage import Storage
 from zonia.domain.conversation import Conversation, new_conversation
 from zonia.texts.replies import FAILURE_REPLY
-from zonia.turn import run_turn, run_turn_safely
+from zonia.agent.safety import run_turn_safely
+from zonia.agent.turn import run_turn
 
 
 @pytest.fixture

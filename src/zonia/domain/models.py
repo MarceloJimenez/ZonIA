@@ -2,12 +2,9 @@
 
 from datetime import date
 from enum import StrEnum
-from functools import cache
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, create_model, model_validator
-
-from zonia.config import zones_for
+from pydantic import BaseModel, Field
 
 OUTSIDE_ZONE = "outside"  # service_zone value when the place is in no service zone
 
@@ -110,48 +107,3 @@ class ScreeningFields(BaseModel):
 
 
 Language = Literal["es", "en"]  # the languages Sonia speaks (docs/ASSIGNMENT.md:94)
-
-
-class Turn(BaseModel):
-    fields: ScreeningFields
-
-    intent: Intent
-
-    language: Language = Field(
-        description=(
-            "Idioma del último mensaje del candidato, sin mirar los anteriores: es (español) o en (inglés). "
-            "Si mezcla los dos, el que más palabras tiene: \"Yes, I live in Madrid, gracias\" es en. "
-            "Si escribe en otro idioma, el idioma actual de la conversación."
-        )
-    )
-
-    reply: str
-
-
-SERVICE_ZONE_DESCRIPTION = (
-    "La zona de servicio que contiene el lugar de city_zone (ciudad, barrio, colonia, provincia o estado). "
-    f"Si el lugar no está en ninguna zona de la lista, '{OUTSIDE_ZONE}'. "
-    "Rellénalo siempre que rellenes city_zone."
-)
-
-
-@cache
-def turn_model(country: str) -> type[Turn]:
-    """Turn for one country: service_zone accepts only that country's zones or OUTSIDE_ZONE.
-
-    Any other value fails validation, and Pydantic AI asks the LLM again.
-    """
-    zone = Literal[tuple([*zones_for(country), OUTSIDE_ZONE])]
-    fields_model = create_model(
-        f"ScreeningFields{country}",
-        __base__=ScreeningFields,
-        __validators__={"_zone_with_place": model_validator(mode="after")(_zone_with_place)},
-        service_zone=(Optional[zone], Field(None, description=SERVICE_ZONE_DESCRIPTION)),
-    )
-    return create_model(f"Turn{country}", __base__=Turn, fields=(fields_model, ...))
-
-
-def _zone_with_place(fields: ScreeningFields) -> ScreeningFields:
-    if (fields.city_zone is None) != (fields.service_zone is None):
-        raise ValueError("city_zone y service_zone van juntos: rellena los dos o ninguno.")
-    return fields

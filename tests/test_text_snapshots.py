@@ -14,8 +14,11 @@ import pytest
 
 from zonia.config import GREETING, contact_email_for
 from zonia.texts.summary import render_summary
-from zonia.domain.models import ScreeningFields, Status, turn_model
-from zonia.prompt import SYSTEM, directive, invalid_directive, reply_language, turn_instructions
+from zonia.agent.schema import turn_model
+from zonia.domain.models import ScreeningFields, Status
+from zonia.agent.prompts.call_1 import turn_instructions
+from zonia.agent.prompts.call_2 import directive, invalid_directive, reply_language
+from zonia.agent.prompts.system import SYSTEM
 from zonia.domain.conversation import Conversation
 from zonia.texts.replies import CONTACT_REPLY, FAILURE_REPLY, LIMIT_REPLY, REVIEW_REPLY, reminder_text
 from zonia.domain.validation import validate

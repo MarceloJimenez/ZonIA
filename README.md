@@ -63,7 +63,7 @@ Meta delivers messages only after the business is verified. Until then, the web 
 
 ```text
  WhatsApp ─┐
- Web chat ─┼─> adapters (src/zonia/adapters/http.py) ──> core: one turn (src/zonia/turn.py) ──> LLM
+ Web chat ─┼─> adapters (src/zonia/adapters/http.py) ──> core: one turn (src/zonia/agent/turn.py) ──> LLM
  Voice ────┘                                                   │
  Terminal (src/zonia/cli.py) ───────────────────────────────────┤
                                                                └──> SQLite (src/zonia/storage.py)
@@ -71,7 +71,7 @@ Meta delivers messages only after the business is verified. Until then, the web 
 ```
 
 - **One core, many channels.** Each channel has an adapter. The adapter gives the candidate's text to the core and sends the reply back on the same channel. The core does not know the channel.
-- **The LLM reads, code decides.** In each turn the LLM returns the extracted fields, the candidate's intent and a reply ([src/zonia/turn.py](src/zonia/turn.py)). Code then checks the values ([src/zonia/domain/validation.py](src/zonia/domain/validation.py)) and decides the stage and the status ([src/zonia/domain/flow.py](src/zonia/domain/flow.py)).
+- **The LLM reads, code decides.** In each turn the LLM returns the extracted fields, the candidate's intent and a reply ([src/zonia/agent/turn.py](src/zonia/agent/turn.py)). Code then checks the values ([src/zonia/domain/validation.py](src/zonia/domain/validation.py)) and decides the stage and the status ([src/zonia/domain/flow.py](src/zonia/domain/flow.py)).
 - **A second LLM call only when needed.** When the status changes, or a value is not valid, a second call writes the reply again with a directive. Code writes the summary, so the data in it is exact.
 - **Stages:** `introduction`, `data_collection`, `closing`.
 - **Statuses:** `active`, `paused`, `qualified`, `disqualified`, `withdrawn`, `incomplete`, and `technical_error` after 2 failed turns in a row. `technical_error` is not final: a good turn makes the conversation `active` again. The dashboard highlights it, so the recruiter contacts the candidate.

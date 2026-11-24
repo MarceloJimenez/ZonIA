@@ -11,10 +11,10 @@ from test_turn import COMPLETE, NO_LICENCE, FakeLLM, make_agent
 from zonia.config import MAX_TURNS, contact_email_for
 from zonia.texts.summary import render_summary
 from zonia.domain.models import ScreeningFields, Stage
-from zonia.prompt import turn_instructions
+from zonia.agent.prompts.call_1 import turn_instructions
 from zonia.domain.conversation import Conversation
 from zonia.texts.replies import CONTACT_REPLY, FAILURE_REPLY, LIMIT_REPLY
-from zonia.turn import run_turn
+from zonia.agent.turn import run_turn
 
 ANA = ScreeningFields(
     full_name="Ana López",

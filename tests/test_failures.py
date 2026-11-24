@@ -8,11 +8,12 @@ from pydantic_ai.models.function import FunctionModel
 
 from test_turn import CALL_1_REPLY, FakeLLM, make_agent
 from zonia.config import contact_email_for
-from zonia.domain.models import ScreeningFields, Status, Turn
-from zonia.prompt import SYSTEM
+from zonia.agent.schema import Turn
+from zonia.domain.models import ScreeningFields, Status
+from zonia.agent.prompts.system import SYSTEM
 from zonia.domain.conversation import Conversation
 from zonia.texts.replies import FAILURE_REPLY
-from zonia.turn import RETRY_DELAYS, run_turn_safely
+from zonia.agent.safety import RETRY_DELAYS, run_turn_safely
 
 
 class FailingLLM(FakeLLM):

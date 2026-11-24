@@ -194,7 +194,7 @@ def test_a_qualified_candidate_who_is_no_longer_interested_is_withdrawn():
 
 
 def test_any_message_reopens_an_incomplete_conversation_at_the_same_stage():
-    # Design 4.1: the candidate came back after the follow-ups closed it. The turn limit is checked before (zonia.turn).
+    # Design 4.1: the candidate came back after the follow-ups closed it. The turn limit is checked before (zonia.agent.safety).
     fields = ScreeningFields(full_name="Ana", driver_license=True)
     assert decide(Stage.DATA_COLLECTION, Status.INCOMPLETE, Intent.NONE, fields) == (Stage.DATA_COLLECTION, Status.ACTIVE)
 

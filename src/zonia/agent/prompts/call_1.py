@@ -1,63 +1,11 @@
-"""Text sent to the LLM: the system prompt, the per-turn instructions and the directives for call 2."""
+"""What call 1 reads each turn: the date, the language, the country's words, the fields and the job facts."""
 
-from zonia.config import JOB_FACTS, PERSONALITY, local_words_for
-from zonia.domain.flow import FIELD_ORDER, open_fields
-from zonia.texts.labels import AVAILABILITY, MONTHS, SCHEDULE, WEEKDAYS
 from datetime import date
 
-from zonia.domain.models import ScreeningFields, Status
-
-# Same for every client. Design: docs/plans/Process design draft.md, section 2.
-FIXED_RULES = [
-    "Escribe mensajes cortos, como en WhatsApp.",
-    "Di \"yo\" para hablar de ti y \"nosotros\" para hablar de Grupo Sazón.",
-    "No intentes ser graciosa.",
-    "Pide perdón solo cuando el error es tuyo (no entendiste algo, o algo técnico falló). "
-    "Una vez y en pocas palabras. Si el candidato corrige un dato suyo, no pidas perdón: "
-    "confirma el dato nuevo.",
-    "Para una mala noticia, como una descalificación, di \"lamentablemente\", no \"lo siento\".",
-    "No prometas el puesto y no opines sobre el candidato.",
-    "Usa siempre el registro de tu personalidad, sin mezclar tú y usted. "
-    "Habla al candidato, nunca de él en tercera persona.",
-]
-
-
-def build_system(personality: dict[str, str]) -> str:
-    """The system prompt: the client's personality, then the fixed rules."""
-    lines = [f"{dimension.capitalize()}: {text}" for dimension, text in personality.items()]
-    rules = [f"- {rule}" for rule in FIXED_RULES]
-    return "\n".join(["Personalidad:", *lines, "", "Reglas:", *rules])
-
-
-SYSTEM = build_system(PERSONALITY)
-
-# Code adds the review email and the case code after the LLM's reply (zonia.turn).
-NO_CONTACT = "No des ningún correo, teléfono ni código: se añaden después de tu mensaje."
-
-DIRECTIVES = {
-    Status.DISQUALIFIED: (
-        "El candidato no puede continuar porque el puesto exige {license}. "
-        "Díselo directamente, de tú y con amabilidad, usando \"lamentablemente\". "
-        f"Agradécele su tiempo y no hagas más preguntas. {NO_CONTACT}"
-    ),
-    # {license} is filled per country by directive().
-    Status.WITHDRAWN: (
-        "El candidato no quiere continuar. Agradécele su tiempo y despídete. No hagas más preguntas."
-    ),
-    Status.PAUSED: (
-        "El candidato no puede seguir ahora. Confírmale que le escribirás más tarde y despídete."
-    ),
-    Status.QUALIFIED: (
-        "El candidato ha confirmado sus datos. Agradécele y dile que el equipo de selección "
-        "revisará su candidatura y le contactará. No hagas más preguntas."
-    ),
-}
-
-ZONE_DIRECTIVE = (
-    "El candidato vive fuera de las zonas donde Grupo Sazón tiene servicio. "
-    "Díselo directamente, de tú y con amabilidad, usando \"lamentablemente\". "
-    f"Agradécele su tiempo y no hagas más preguntas. {NO_CONTACT}"
-)
+from zonia.config import JOB_FACTS, local_words_for
+from zonia.domain.flow import FIELD_ORDER, open_fields
+from zonia.domain.models import ScreeningFields
+from zonia.texts.labels import AVAILABILITY, MONTHS, SCHEDULE, WEEKDAYS
 
 # {license} and {area} are the country's words (config.LOCAL_WORDS), filled by field_label().
 FIELD_LABELS_ES = {
@@ -71,11 +19,21 @@ FIELD_LABELS_ES = {
     "start_date": "fecha en que puede empezar",
 }
 
-
 # Added to an open field in the "Falta" list: how to ask it.
 ASK_HINTS_ES = {
     "driver_license": " (en la misma pregunta, dile que si quiere puede decir para qué vehículo)",
 }
+
+LANGUAGE_NAMES_ES = {"es": "español", "en": "inglés"}
+
+# Call 1 when every field is known: the candidate is checking the summary.
+# Code shows the summary again only when a value changes, so a "no" alone reaches the LLM.
+CLOSING_RULES = (
+    "Ya tienes todos los datos y el candidato está revisando su resumen. "
+    "Si dice que algo está mal pero no dice qué, pregúntale qué dato quiere cambiar. "
+    "Si da un valor nuevo, ponlo en fields. "
+    "No escribas el resumen: el código lo muestra cuando cambia un dato."
+)
 
 
 def field_label(name: str, country: str) -> str:
@@ -93,25 +51,6 @@ def local_words(country: str) -> str:
         "El candidato puede usar otras palabras (carné, carnet, licencia, permiso, barrio, colonia): "
         "entiéndelas todas y no le corrijas."
     )
-
-
-def directive(status: Status, fields: ScreeningFields, country: str = "ES") -> str | None:
-    """The instruction for call 2, or None. A disqualified candidate with a licence was cut by zone."""
-    if status == Status.DISQUALIFIED and fields.driver_license is not False:
-        return ZONE_DIRECTIVE
-    text = DIRECTIVES.get(status)
-    return text.format(**local_words_for(country)) if text else None
-
-
-def invalid_directive(problems: dict[str, str], country: str = "ES") -> str:
-    """The instruction for call 2 when code dropped a value the candidate gave."""
-    lines = [f"- {field_label(name, country)}: {reason}" for name, reason in problems.items()]
-    return "\n".join([
-        "Estos datos del candidato no son válidos y no se han guardado:",
-        *lines,
-        "Dile en una frase qué esperas y vuelve a preguntar solo por esos datos. "
-        "No digas que los has anotado.",
-    ])
 
 
 def _today_es(today: date) -> str:
@@ -142,9 +81,6 @@ def facts_section(facts: list[str]) -> str:
     ])
 
 
-LANGUAGE_NAMES_ES = {"es": "español", "en": "inglés"}
-
-
 def language_section(language: str) -> str:
     """Which language call 1 replies in. Design: docs/plans/Process design draft.md, section 4.3."""
     current = LANGUAGE_NAMES_ES[language]
@@ -156,21 +92,6 @@ def language_section(language: str) -> str:
         f"Si escribe en otro idioma (por ejemplo portugués), responde en {current} "
         "y empieza diciendo en una frase que solo puedes atender en español o en inglés."
     )
-
-
-def reply_language(language: str) -> str:
-    """The line added to every call 2 instruction: call 1 already decided the language."""
-    return f"Responde en {LANGUAGE_NAMES_ES[language]}."
-
-
-# Call 1 when every field is known: the candidate is checking the summary.
-# Code shows the summary again only when a value changes, so a "no" alone reaches the LLM.
-CLOSING_RULES = (
-    "Ya tienes todos los datos y el candidato está revisando su resumen. "
-    "Si dice que algo está mal pero no dice qué, pregúntale qué dato quiere cambiar. "
-    "Si da un valor nuevo, ponlo en fields. "
-    "No escribas el resumen: el código lo muestra cuando cambia un dato."
-)
 
 
 def turn_instructions(

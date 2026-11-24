@@ -1,7 +1,7 @@
 """HTTP endpoints of Sonia's service: the web chat, voice through ElevenLabs, and the webhook of Meta's WhatsApp Cloud API.
 
 Design: docs/plans/System design.md, section 1. Each adapter turns a candidate message into a turn,
-and the turn's reply into a message on the same channel. The core (zonia.turn) does not know the channel.
+and the turn's reply into a message on the same channel. The core (zonia.agent.turn) does not know the channel.
 
 Web chat: the candidate writes a phone number on a mock job page (/apply), and Sonia chats in the
 browser at /chat/{case code}. The case code, not the row id, is in the URL: an id can be guessed.
@@ -34,12 +34,12 @@ from pydantic_ai import Agent
 from zonia import settings
 from zonia.adapters.whatsapp import MetaSender, Sender
 from zonia.config import GREETING, JOB_FACTS, zones_for
-from zonia.llm import build_agent, build_model
-from zonia.domain.models import Turn
+from zonia.agent.llm import build_agent, build_model
+from zonia.agent.schema import Turn
 from zonia.storage import Storage
 from zonia.texts.replies import TEXT_ONLY_REPLY
 from zonia.domain.conversation import new_conversation
-from zonia.turn import run_turn_safely
+from zonia.agent.safety import run_turn_safely
 
 logger = logging.getLogger(__name__)
 

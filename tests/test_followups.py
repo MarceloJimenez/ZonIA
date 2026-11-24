@@ -13,7 +13,7 @@ from zonia.texts.replies import reminder_text
 from zonia.domain.models import ScreeningFields, Stage, Status
 from zonia.storage import Storage
 from zonia.domain.conversation import Conversation, new_conversation
-from zonia.turn import run_turn_safely
+from zonia.agent.safety import run_turn_safely
 
 START = datetime(2026, 11, 22, 9, 0, tzinfo=UTC)
 

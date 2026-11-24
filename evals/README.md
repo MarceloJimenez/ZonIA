@@ -27,6 +27,7 @@ An LLM judge checks 4 rules for each conversation (`RULES` in `personas.py`). Th
 ## How a case works
 
 1. A case is a scripted conversation: a list of candidate messages (`cases.py`).
+   A case can begin at a conversation already in progress (`Start` in `conversation.py`), built by code with no LLM call. Only `full_run_qualified` sends Ana's messages to the LLM; 12 cases begin at one of 4 points of Ana's conversation, and their turn numbers count only the messages after that point.
 2. `converse()` sends each message as one turn through the real agent. It does not stop at a final status, because a later message can reopen the conversation (`conversation.py`).
 3. The checks read the transcript and the final state (`evaluators.py`).
 
@@ -40,7 +41,7 @@ An LLM judge checks 4 rules for each conversation (`RULES` in `personas.py`). Th
 | `LlmCalls` | code | Cost: LLM calls made by the agent (a score, not a pass/fail). |
 | `Judge` | LLM | An LLM reads the transcript and decides whether a written rule holds. |
 
-Code checks are used for everything that can be measured exactly. The LLM judge (`pydantic_evals` `judge_output`) is used only for what code cannot measure: whether a question repeats known data, and whether a final reply follows its directive. Every case also runs the judge rule "no repeated question".
+Code checks are used for everything that can be measured exactly. The LLM judge (`pydantic_evals` `judge_output`) is used only for what code cannot measure: whether a question repeats known data, and whether a final reply follows its directive. Every case with 3 turns or more, prepared turns included, also runs the judge rule "no repeated question".
 
 ## Cases
 
@@ -79,4 +80,4 @@ Code checks are used for everything that can be measured exactly. The LLM judge 
 ## Limits
 
 - Each case runs once. LLM output varies, so one pass is evidence, not proof.
-- The judge is a larger Gemini model than the agent's (`evals/judge.yaml`), with high reasoning effort. It is still from the same family as the agent, so it can favour the agent's style.
+- The judge (`evals/judge.yaml`) is the same Gemini model as the agent, with high reasoning effort. The larger `gemini-3.5-flash` has a free quota of 20 requests a day, too few for a run. A judge from the same family as the agent can favour the agent's style.

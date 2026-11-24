@@ -7,10 +7,11 @@ from datetime import date, timedelta
 
 from pydantic_evals import Case, Dataset
 
-from conversation import Script, Transcript
+from conversation import Script, Start, Transcript
 from evaluators import FieldsExtracted, FinalState, IntentAt, Judge, LanguageAt, LlmCalls, StatusAt, SummaryAt
 from zonia.texts.labels import MONTHS
-from zonia.domain.models import Intent, Stage, Status
+from zonia.texts.summary import render_summary
+from zonia.domain.models import Intent, ScreeningFields, Stage, Status
 
 NO_REPEATED_QUESTION = Judge(
     "no repeated question",
@@ -104,6 +105,40 @@ ANA_FIELDS = {
     "experience_platform": "Glovo",
     "start_date": ANA_START,
 }
+
+# Ana's conversation stopped at 4 points, built by code with no LLM call (Start in conversation.py).
+# Only full_run_qualified sends Ana's messages to the LLM; the cases that begin at these points
+# check only what comes after. Sonia's replies are copied from a passing full_run_qualified run.
+ANA_REPLIES = [
+    "Encantada, Ana. ¿Tienes carné de conducir vigente? Si quieres, puedes decirme para qué vehículo.",
+    "Gracias, Ana. Para seguir con tu solicitud, ¿qué tipo de disponibilidad tienes: tiempo completo, "
+    "medio tiempo o fines de semana?",
+    "¿Cuántos años de experiencia tienes como repartidor?",
+    "¿En qué fecha puedes empezar a trabajar?",
+    render_summary(ScreeningFields(**ANA_FIELDS)),
+    "Muchas gracias, Ana. El equipo de selección revisará tu candidatura y te contactará.",
+]
+ANA_TURNS = list(zip([*ANA, "Sí, todo correcto"], ANA_REPLIES))
+
+
+def ana_fields(*names: str) -> ScreeningFields:
+    """Ana's values for the given fields only."""
+    return ScreeningFields(**{name: ANA_FIELDS[name] for name in names})
+
+
+ZONE_FIELDS = ("full_name", "driver_license", "city_zone", "service_zone")
+EXPERIENCE_FIELDS = (*ZONE_FIELDS, "availability", "schedule", "experience_years", "experience_platform")
+
+# After ANA[:2]: Sonia asks for availability.
+ANA_AFTER_ZONE = Start(turns=ANA_TURNS[:2], fields=ana_fields(*ZONE_FIELDS), stage=Stage.DATA_COLLECTION)
+# After ANA[:4]: Sonia asks for the start date.
+ANA_AFTER_EXPERIENCE = Start(turns=ANA_TURNS[:4], fields=ana_fields(*EXPERIENCE_FIELDS), stage=Stage.DATA_COLLECTION)
+# After ANA: Sonia shows the summary and asks to confirm it.
+ANA_AT_SUMMARY = Start(turns=ANA_TURNS[:5], fields=ScreeningFields(**ANA_FIELDS), stage=Stage.CLOSING)
+# After "Sí, todo correcto": Ana is qualified.
+ANA_QUALIFIED = Start(
+    turns=ANA_TURNS, fields=ScreeningFields(**ANA_FIELDS), stage=Stage.CLOSING, status=Status.QUALIFIED
+)
 
 CASES = [
     # --- Intent ---
@@ -206,7 +241,7 @@ CASES = [
     ),
     Case(
         name="availability_specific_weekdays",
-        inputs=Script(messages=[*ANA[:2], "puedo martes miercoles y jueves"]),
+        inputs=Script(start=ANA_AFTER_ZONE, messages=["puedo martes miercoles y jueves"]),
         evaluators=(
             FieldsExtracted({"availability": None}),
             FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
@@ -215,7 +250,7 @@ CASES = [
     ),
     Case(
         name="availability_other_weekdays",
-        inputs=Script(messages=[*ANA[:2], "puedo lunes miercoles y viernes"]),
+        inputs=Script(start=ANA_AFTER_ZONE, messages=["puedo lunes miercoles y viernes"]),
         evaluators=(
             FieldsExtracted({"availability": None}),
             FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
@@ -224,7 +259,7 @@ CASES = [
     ),
     Case(
         name="past_start_date",
-        inputs=Script(messages=[*ANA[:4], "Puedo empezar el 3 de marzo de 2025"]),
+        inputs=Script(start=ANA_AFTER_EXPERIENCE, messages=["Puedo empezar el 3 de marzo de 2025"]),
         evaluators=(
             FieldsExtracted({"start_date": None}),
             FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
@@ -238,13 +273,13 @@ CASES = [
     ),
     Case(
         name="start_tomorrow",
-        inputs=Script(messages=[*ANA[:4], "Puedo empezar mañana"]),
-        evaluators=(FieldsExtracted({"start_date": in_days(1)}), SummaryAt(4)),
+        inputs=Script(start=ANA_AFTER_EXPERIENCE, messages=["Puedo empezar mañana"]),
+        evaluators=(FieldsExtracted({"start_date": in_days(1)}), SummaryAt(0)),
     ),
     Case(
         name="start_date_without_year",
-        inputs=Script(messages=[*ANA[:4], f"Puedo empezar el {NO_YEAR_TEXT}"]),
-        evaluators=(FieldsExtracted({"start_date": NO_YEAR_DATE}), SummaryAt(4)),
+        inputs=Script(start=ANA_AFTER_EXPERIENCE, messages=[f"Puedo empezar el {NO_YEAR_TEXT}"]),
+        evaluators=(FieldsExtracted({"start_date": NO_YEAR_DATE}), SummaryAt(0)),
     ),
     Case(
         name="full_run_qualified",
@@ -259,24 +294,24 @@ CASES = [
     # --- Data in any order ---
     Case(
         name="says_no_to_the_summary_without_saying_what",
-        inputs=Script(messages=[*ANA, "No", "La experiencia, son 3 años", "Ahora sí, todo correcto"]),
+        inputs=Script(start=ANA_AT_SUMMARY, messages=["No", "La experiencia, son 3 años", "Ahora sí, todo correcto"]),
         evaluators=(
             Judge(
                 "asks what is wrong",
                 "After the candidate answers only \"No\" to the summary, Sonia's next reply asks which "
                 "detail is wrong. That reply does not repeat the whole summary.",
             ),
-            SummaryAt(6),
+            SummaryAt(1),
             FieldsExtracted({"experience_years": 3}),
             FinalState(Status.QUALIFIED),
         ),
     ),
     Case(
         name="corrects_the_summary",
-        inputs=Script(messages=[*ANA, "No, mi zona es Sevilla", "Ahora sí, todo correcto"]),
+        inputs=Script(start=ANA_AT_SUMMARY, messages=["No, mi zona es Sevilla", "Ahora sí, todo correcto"]),
         evaluators=(
-            IntentAt(5, Intent.CORRECTS_SUMMARY),
-            SummaryAt(5),
+            IntentAt(0, Intent.CORRECTS_SUMMARY),
+            SummaryAt(0),
             FieldsExtracted({"city_zone": "Sevilla", "service_zone": "Andalucía"}),
             FinalState(Status.QUALIFIED),
         ),
@@ -337,20 +372,6 @@ CASES = [
     ),
     # --- Questions off the screening ---
     Case(
-        name="asks_the_salary",
-        inputs=Script(messages=[*ANA[:2], "Antes de seguir, ¿cuánto se paga?"]),
-        evaluators=(
-            FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
-            Judge(
-                "no invented facts",
-                "Sonia's last reply gives no figure or detail about pay. It says she does not have that "
-                "information and is here to help with the application. It does not say who will explain it, "
-                "when, or mention any other step of the process (such as an interview). "
-                "Then it asks the next screening question (availability or preferred schedule).",
-            ),
-        ),
-    ),
-    Case(
         name="asks_the_salary_twice",
         inputs=Script(messages=[
             ANA[0],
@@ -384,8 +405,7 @@ CASES = [
     # --- A message that is not for Sonia (voice, conversation 24) ---
     Case(
         name="background_conversation",
-        inputs=Script(messages=[
-            *ANA[:2],
+        inputs=Script(start=ANA_AFTER_ZONE, messages=[
             "¿Pero con quién estás hablando? ¿Con Claudia? No, con la Sonia. Ah. ¿Cómo que Sonia? "
             "Con Sonia, mi agente virtual. Es la que estoy creando para una empresa.",
         ]),
@@ -403,10 +423,9 @@ CASES = [
     # --- Language: Spanish and English (design 4.3) ---
     Case(
         name="switches_to_english",
-        inputs=Script(messages=[*ANA[:2], "Sorry, can we continue in English? Full-time, mornings"]),
+        inputs=Script(start=ANA_AFTER_ZONE, messages=["Sorry, can we continue in English? Full-time, mornings"]),
         evaluators=(
-            LanguageAt(1, "es"),
-            LanguageAt(2, "en"),
+            LanguageAt(0, "en"),
             FieldsExtracted({"availability": ["full-time"], "schedule": ["morning"]}),
             FinalState(Status.ACTIVE, Stage.DATA_COLLECTION),
             Judge(
@@ -475,30 +494,27 @@ CASES = [
     ),
     Case(
         name="qualified_corrects_a_field",
-        inputs=Script(messages=[*ANA, "Sí, todo correcto", "Perdón, mi zona es Sevilla"]),
+        inputs=Script(start=ANA_QUALIFIED, messages=["Perdón, mi zona es Sevilla"]),
         evaluators=(
-            StatusAt(5, Status.QUALIFIED),
-            IntentAt(6, Intent.CORRECTS_SUMMARY),
-            SummaryAt(6),
+            IntentAt(0, Intent.CORRECTS_SUMMARY),
+            SummaryAt(0),
             FieldsExtracted({"city_zone": "Sevilla", "service_zone": "Andalucía"}),
             FinalState(Status.ACTIVE, Stage.CLOSING),
         ),
     ),
     Case(
         name="qualified_no_longer_interested",
-        inputs=Script(messages=[*ANA, "Sí, todo correcto", "Lo he pensado y ya no me interesa"]),
+        inputs=Script(start=ANA_QUALIFIED, messages=["Lo he pensado y ya no me interesa"]),
         evaluators=(
-            StatusAt(5, Status.QUALIFIED),
-            IntentAt(6, Intent.NOT_INTERESTED),
+            IntentAt(0, Intent.NOT_INTERESTED),
             FinalState(Status.WITHDRAWN, Stage.CLOSING),
             SAYS_WITHDRAWN,
         ),
     ),
     Case(
         name="goodbye_keeps_qualified",
-        inputs=Script(messages=[*ANA, "Sí, todo correcto", "Gracias, adiós"]),
+        inputs=Script(start=ANA_QUALIFIED, messages=["Gracias, adiós"]),
         evaluators=(
-            StatusAt(5, Status.QUALIFIED),
             FinalState(Status.QUALIFIED, Stage.CLOSING),
             Judge(
                 "short goodbye",
@@ -509,8 +525,14 @@ CASES = [
     ),
 ]
 
+# In 1 or 2 turns Sonia has almost nothing to repeat, so the judge checks repetition only from 3 turns on.
+MIN_TURNS_FOR_REPEAT_CHECK = 3
+for case in CASES:
+    if case.inputs.turn_count() >= MIN_TURNS_FOR_REPEAT_CHECK:
+        case.evaluators.append(NO_REPEATED_QUESTION)
+
 DATASET = Dataset[Script, Transcript, None](
     name="sonia_conversations",
     cases=CASES,
-    evaluators=[NO_REPEATED_QUESTION, LlmCalls()],
+    evaluators=[LlmCalls()],
 )

@@ -3,8 +3,8 @@
 # The judge's rubrics live in evals/evaluators.py and evals/personas.py.
 # Raise metadata.version when the model or the settings change, so eval reports say which judge graded them.
 name: judge
-model: gemini-3.5-flash  # a larger model than Sonia's
+model: gemini-3.5-flash-lite  # the larger gemini-3.5-flash has a free quota of 20 requests a day
 model_settings:
   openai_reasoning_effort: high  # the judge thinks before it grades
 metadata:
-  version: 1
+  version: 2

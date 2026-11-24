@@ -9,6 +9,7 @@ import asyncio
 import os
 import sys
 
+from zonia import settings
 from zonia.config import GREETING
 from zonia.llm import build_agent, build_model
 from zonia.storage import Storage
@@ -18,8 +19,9 @@ from zonia.turn import new_conversation, run_turn_safely
 def main() -> None:
     # The chat stays open after a final status: a later message can reopen it.
     # An empty line or Ctrl-D ends the chat.
+    settings.load()
     agent = build_agent(build_model())
-    storage = Storage(os.environ.get("ZONIA_DB", "zonia.db"))
+    storage = Storage(settings.db_path())
     try:
         if len(sys.argv) > 1:
             try:

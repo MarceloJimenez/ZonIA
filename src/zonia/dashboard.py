@@ -4,7 +4,6 @@ Read-only. It reads the same SQLite file as Sonia (ZONIA_DB, or zonia.db).
 `zonia-dashboard` starts it on http://127.0.0.1:8000.
 """
 
-import os
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -15,8 +14,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from dotenv import load_dotenv
-
+from zonia import settings
 from zonia.config import SERVICE_ZONES
 from zonia.flow import render_summary
 from zonia.models import OUTSIDE_ZONE, RecruiterOutcome, ScreeningFields, Stage, Status
@@ -344,5 +342,5 @@ def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) ->
 def main() -> None:
     import uvicorn
 
-    load_dotenv(".env")
-    uvicorn.run(create_app(os.environ.get("ZONIA_DB", "zonia.db")), host="127.0.0.1", port=8000)
+    settings.load()
+    uvicorn.run(create_app(settings.db_path()), host="127.0.0.1", port=8000)

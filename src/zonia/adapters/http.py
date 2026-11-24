@@ -31,8 +31,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic_ai import Agent
 
+from zonia import settings
 from zonia.adapters.whatsapp import MetaSender, Sender
 from zonia.config import GREETING, JOB_FACTS, zones_for
+from zonia.llm import build_agent, build_model
 from zonia.models import Turn
 from zonia.storage import Storage
 from zonia.turn import new_conversation, run_turn_safely
@@ -308,11 +310,10 @@ def create_app(
 def main() -> None:
     import uvicorn
 
-    from zonia.llm import build_agent, build_model  # loads .env
-
+    settings.load()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", datefmt="%H:%M:%S")
     app = create_app(
-        os.environ.get("ZONIA_DB", "zonia.db"),
+        settings.db_path(),
         build_agent(build_model()),
         MetaSender.from_env(),
         os.environ["META_APP_SECRET"],

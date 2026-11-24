@@ -9,12 +9,12 @@ A conversation does at most one step per check: the last step that is due. If th
 run for a while, an old reminder is not sent late.
 """
 
-import os
 from dataclasses import dataclass
 from datetime import datetime
 
 from pydantic_ai.messages import ModelResponse, TextPart
 
+from zonia import settings
 from zonia.config import FOLLOW_UPS, FOLLOW_UPS_NO_REPLY, local_words_for
 from zonia.flow import open_fields
 from zonia.models import Status
@@ -136,7 +136,8 @@ def run_followups(storage: Storage, now: datetime) -> list[FollowUp]:
 
 def main() -> None:
     """`zonia-followups`: check every conversation once and print what was done."""
-    storage = Storage(os.environ.get("ZONIA_DB", "zonia.db"))
+    settings.load()
+    storage = Storage(settings.db_path())
     try:
         for f in run_followups(storage, storage.clock()):
             print(f"conversation={f.conversation_id} step={f.step}" + (f" reminder={f.reminder!r}" if f.reminder else ""))

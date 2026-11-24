@@ -18,6 +18,10 @@ from pathlib import Path
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
+from zonia import settings  # noqa: E402
+
+settings.load()
+
 from pydantic_ai import Agent  # noqa: E402
 
 from conversation import AGENT, JUDGE_MODEL, JUDGE_SETTINGS, MODEL, with_retries  # noqa: E402

@@ -16,6 +16,10 @@ from pathlib import Path
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
+from zonia import settings  # noqa: E402
+
+settings.load()
+
 from cases import ANA, ANA_START, CASES  # noqa: E402
 from conversation import Script, Transcript, converse  # noqa: E402
 from zonia.flow import render_summary  # noqa: E402

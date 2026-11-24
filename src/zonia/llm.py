@@ -1,8 +1,7 @@
-"""The LLM model and the agent. The provider comes from .env."""
+"""The LLM model and the agent. The provider comes from the environment (see zonia.settings)."""
 
 import os
 
-from dotenv import load_dotenv
 from pydantic_ai import Agent
 from pydantic_ai.models import Model
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -10,8 +9,6 @@ from pydantic_ai.providers.openai import OpenAIProvider
 
 from zonia.models import Turn
 from zonia.prompt import SYSTEM
-
-load_dotenv(".env")
 
 
 def build_model(name: str | None = None) -> OpenAIChatModel:

@@ -13,6 +13,10 @@ from pathlib import Path
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
+from zonia import settings  # noqa: E402
+
+settings.load()
+
 from pydantic_evals import Dataset  # noqa: E402
 
 from cases import DATASET  # noqa: E402

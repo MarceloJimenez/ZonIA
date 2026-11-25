@@ -29,6 +29,11 @@ const chat = document.getElementById("chat");
 const form = document.getElementById("send");
 const input = document.getElementById("text");
 const button = form.querySelector("button");
+const panel = chat.parentElement; // the part of the page that scrolls
+
+function scrollToEnd() {
+  panel.scrollTop = panel.scrollHeight;
+}
 
 function add(who, text, mine) {
   const msg = document.createElement("div");
@@ -41,7 +46,7 @@ function add(who, text, mine) {
   body.textContent = text;
   msg.append(name, body);
   chat.append(msg);
-  msg.scrollIntoView({block: "end"});
+  scrollToEnd();
   return msg;
 }
 
@@ -57,8 +62,10 @@ form.addEventListener("submit", async (event) => {
     const response = await fetch(form.action, {method: "POST", body: new URLSearchParams({text})});
     if (!response.ok) throw new Error(response.status);
     typing.querySelector(".zn-msg__text").textContent = (await response.json()).reply;
+    scrollToEnd();
   } catch (error) {
     typing.querySelector(".zn-msg__text").textContent = "No pude enviar tu mensaje. Inténtalo de nuevo.";
+    scrollToEnd();
   } finally {
     input.disabled = button.disabled = false;
     input.focus();
@@ -78,6 +85,7 @@ async function typeGreeting() {
     const msg = add("Sonia", "Escribiendo…", false);
     await pause(1500);
     msg.querySelector(".zn-msg__text").textContent = text;
+    scrollToEnd();
     await pause(400);
   }
   input.disabled = button.disabled = false;
@@ -85,7 +93,7 @@ async function typeGreeting() {
 
 typeGreeting().then(() => {
   input.focus();
-  chat.lastElementChild?.scrollIntoView({block: "end"});
+  scrollToEnd();
 });
 </script>
 {% endblock %}

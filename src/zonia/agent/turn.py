@@ -27,7 +27,7 @@ from zonia.config import contact_email_for
 from zonia.domain.conversation import Conversation, new_case_code
 from zonia.domain.flow import FINAL_STATUSES, decide
 from zonia.domain.models import Intent, Language, ScreeningFields, Stage, Status
-from zonia.domain.validation import validate
+from zonia.domain.validation import start_date_from, validate
 from zonia.texts.replies import REVIEW_REPLY
 from zonia.texts.summary import render_summary
 
@@ -119,9 +119,17 @@ def _merge_fields(c: Conversation, new: ScreeningFields, today: date) -> tuple[S
     """The fields after this turn, and the problems of the new values.
 
     An invalid value is not saved: the field stays empty, or keeps its earlier value.
+    The LLM gives the start date as day, month and year; code builds the date here.
     """
     new_values = new.model_dump(exclude_none=True)
-    problems = validate(ScreeningFields(**new_values), today)
+    date_problem = {}
+    if (said := new_values.pop("start_date", None)) is not None:
+        start = start_date_from(said["day"], said["month"], said.get("year"), today)
+        if start is None:
+            date_problem = {"start_date": "esa fecha no existe"}
+        else:
+            new_values["start_date"] = start
+    problems = validate(ScreeningFields(**new_values), today) | date_problem
     valid = {name: value for name, value in new_values.items() if name not in problems}
     return c.fields.model_copy(update=valid), problems
 

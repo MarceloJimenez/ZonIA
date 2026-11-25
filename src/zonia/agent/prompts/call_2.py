@@ -48,7 +48,8 @@ def invalid_directive(problems: dict[str, str], country: Country = "ES") -> str:
     return "\n".join([
         "Estos datos del candidato no son válidos y no se han guardado:",
         *lines,
-        "Dile en una frase qué esperas y vuelve a preguntar solo por esos datos. "
+        "Dile en una frase el motivo que aparece en la lista, con tus palabras y sin añadir otros motivos. "
+        "Después vuelve a preguntar solo por esos datos, hablándole de tú. "
         "No digas que los has anotado.",
     ])
 

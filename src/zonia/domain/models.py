@@ -111,14 +111,8 @@ class ScreeningFields(BaseModel):
         "\"Uber Eats\"), aunque el candidato lo escriba en minúsculas.",
     )
 
-    start_date: date | None = Field(
-        None,
-        description=(
-            "Si el candidato dice el año, usa ese año, aunque la fecha ya haya pasado: el código la comprueba. "
-            "Si no dice el año, usa la próxima vez que llega esa fecha, contando desde hoy: "
-            "si este año ya pasó, es la del año que viene."
-        ),
-    )
+    # The LLM gives day, month and year apart (zonia.agent.schema.SaidDate); code builds this date.
+    start_date: date | None = None
 
     @property
     def first_name(self) -> str | None:

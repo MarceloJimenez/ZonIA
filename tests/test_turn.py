@@ -50,6 +50,15 @@ class FakeLLM:
         return ModelResponse(parts=[TextPart(CALL_2_REPLY)])  # call 2 asks for text
 
 
+def llm_fields(fields: ScreeningFields) -> dict:
+    """The fields as call 1 gives them: the start date as day, month and year (zonia.agent.schema.SaidDate)."""
+    values = fields.model_dump(mode="json", exclude_none=True)
+    if fields.start_date is not None:
+        d = fields.start_date
+        values["start_date"] = {"day": d.day, "month": d.month, "year": d.year}
+    return values
+
+
 def make_agent(fake: FakeLLM) -> Agent:
     return build_agent(FunctionModel(fake))
 
@@ -120,7 +129,7 @@ def test_the_dropped_reply_never_enters_the_history():
 
 
 def test_the_summary_is_written_by_code_and_kept_in_the_history():
-    all_fields = COMPLETE.model_dump(mode="json", exclude_none=True)
+    all_fields = llm_fields(COMPLETE)
     fake = FakeLLM([{"fields": all_fields, "reply": "Tus datos: Ana Lopes, Chamberi..."}])
     conversation = Conversation()
     turn = asyncio.run(run_turn(make_agent(fake), conversation, "Todo en un mensaje"))
@@ -284,24 +293,54 @@ def test_a_candidate_disqualified_by_zone_reopens_with_a_place_in_a_service_zone
     assert "Zona: Vigo" in turn.reply
 
 
+# --- Start date: the LLM gives day, month and year; code builds the date -----
+
+
+def test_a_start_date_with_a_past_year_is_not_saved():
+    # "3 de marzo de 2025": the year the candidate said is kept, so the date is rejected, not moved to a later year.
+    fake = FakeLLM([{"fields": {"start_date": {"day": 3, "month": 3, "year": 2025}}}])
+    conversation = Conversation(fields=ScreeningFields(full_name="Ana López", driver_license=True))
+    turn = asyncio.run(run_turn(make_agent(fake), conversation, "Puedo empezar el 3 de marzo de 2025", date(2026, 11, 25)))
+    assert conversation.fields.start_date is None
+    assert (turn.reply_source, turn.invalid_fields) == ("call_2", ["start_date"])
+    assert "esa fecha ya pasó" in fake.instructions[-1]
+
+
+def test_a_start_date_without_a_year_is_saved_as_the_next_time_it_comes():
+    fake = FakeLLM([{"fields": {"start_date": {"day": 3, "month": 3}}}])
+    conversation = Conversation(fields=ScreeningFields(full_name="Ana López", driver_license=True))
+    asyncio.run(run_turn(make_agent(fake), conversation, "Puedo empezar el 3 de marzo", date(2026, 11, 25)))
+    assert conversation.fields.start_date == date(2027, 3, 3)
+
+
+def test_a_start_date_that_does_not_exist_is_not_saved():
+    fake = FakeLLM([{"fields": {"start_date": {"day": 30, "month": 2, "year": 2027}}}])
+    conversation = Conversation(fields=ScreeningFields(full_name="Ana López", driver_license=True))
+    turn = asyncio.run(run_turn(make_agent(fake), conversation, "El 30 de febrero de 2027", date(2026, 11, 25)))
+    assert conversation.fields.start_date is None
+    assert turn.invalid_fields == ["start_date"]
+
+
 # --- Invalid values ---------------------------------------------------------
 # The candidate's errors: code does not save the value, and call 2 asks again.
 
 
 def test_an_invalid_value_is_not_saved_and_call_2_asks_again():
-    past = (date.today() - timedelta(days=5)).isoformat()
+    d = date.today() - timedelta(days=5)
+    past = {"day": d.day, "month": d.month, "year": d.year}
     fake = FakeLLM([{"fields": {"start_date": past, "availability": ["full-time"]}}])
     conversation = Conversation(fields=ScreeningFields(full_name="Ana López", driver_license=True))
     turn = asyncio.run(run_turn(make_agent(fake), conversation, "Tiempo completo, empiezo el lunes pasado"))
     assert conversation.fields.start_date is None
     assert conversation.fields.availability == ["full-time"]  # the valid value in the same message is kept
     assert (turn.reply, turn.llm_calls, turn.invalid_fields) == (CALL_2_REPLY, 2, ["start_date"])
-    assert "fecha en que puede empezar" in fake.instructions[-1]
+    assert "fecha de inicio" in fake.instructions[-1]
 
 
 def test_an_invalid_correction_keeps_the_earlier_value():
     conversation = Conversation(fields=COMPLETE, stage=Stage.CLOSING)
-    past = (date.today() - timedelta(days=5)).isoformat()
+    d = date.today() - timedelta(days=5)
+    past = {"day": d.day, "month": d.month, "year": d.year}
     fake = FakeLLM([{"fields": {"start_date": past}, "intent": "corrects_summary"}])
     turn = asyncio.run(run_turn(make_agent(fake), conversation, "No, empiezo el lunes pasado"))
     assert conversation.fields.start_date == START
@@ -399,7 +438,7 @@ def test_call_2_and_the_summary_use_the_words_of_the_country():
     assert "exige licencia de manejo" in fake.instructions[-1]
     assert 'cuando nombres el permiso para conducir, di "licencia de manejo".' in fake.instructions[-1]
 
-    all_fields = COMPLETE.model_dump(mode="json", exclude_none=True) | {"service_zone": "Jalisco"}
+    all_fields = llm_fields(COMPLETE) | {"service_zone": "Jalisco"}
     conversation = Conversation(country="MX")
     turn = asyncio.run(run_turn(make_agent(FakeLLM([{"fields": all_fields}])), conversation, "Todo"))
     assert "- Licencia de manejo: Sí" in turn.reply.splitlines()
@@ -414,5 +453,5 @@ def test_a_candidate_who_comes_back_after_incomplete_continues_from_the_first_em
     assert (turn.status, turn.reply_source) == (Status.ACTIVE, "call_1")
     assert conversation.fields.driver_license is True  # nothing asked again
     # Call 1 is told what is known and asks from the first empty field.
-    assert "Falta, en este orden:\n1. ciudad y barrio donde vive" in fake.instructions[0]
-    assert "- si tiene carné de conducir vigente: sí" in fake.instructions[0]
+    assert "Falta, en este orden:\n1. ciudad y barrio\n" in fake.instructions[0]
+    assert "- carné de conducir vigente (sí o no): sí" in fake.instructions[0]

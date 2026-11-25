@@ -42,12 +42,12 @@ def test_missing_fields_are_listed_in_order():
     # With some experience, the platform comes right after it, before the start date.
     missing = _missing_section(turn_instructions(ScreeningFields(full_name="Ana", experience_years=3), TODAY))
     assert missing.splitlines() == [
-        "1. si tiene carné de conducir vigente (en la misma pregunta, dile que si quiere puede decir para qué vehículo)",
-        "2. ciudad y barrio donde vive",
+        "1. carné de conducir vigente (sí o no) (en la misma pregunta, dile que si quiere puede decir para qué vehículo)",
+        "2. ciudad y barrio",
         "3. disponibilidad (tiempo completo, medio tiempo o fines de semana)",
         "4. horario preferido (mañana, tarde, noche o flexible)",
-        "5. plataforma o empresa donde trabajó de repartidor",
-        "6. fecha en que puede empezar",
+        "5. plataforma o empresa de su experiencia como repartidor",
+        "6. fecha de inicio",
     ]
 
 
@@ -106,8 +106,8 @@ def test_disqualifying_directives_say_lamentablemente():
 def test_call_1_uses_the_words_of_the_country():
     spain = turn_instructions(ScreeningFields(full_name="Ana"), TODAY, country="ES")
     mexico = turn_instructions(ScreeningFields(full_name="Ana"), TODAY, country="MX")
-    assert "1. si tiene carné de conducir vigente" in spain and "2. ciudad y barrio donde vive" in spain
-    assert "1. si tiene licencia de manejo vigente" in mexico and "2. ciudad y colonia donde vive" in mexico
+    assert "1. carné de conducir vigente (sí o no)" in spain and "2. ciudad y barrio" in spain
+    assert "1. licencia de manejo vigente (sí o no)" in mexico and "2. ciudad y colonia" in mexico
     assert 'cuando nombres el permiso para conducir, di "licencia de manejo".' in mexico
     assert "carné de conducir" not in mexico
 
@@ -119,7 +119,7 @@ def test_the_disqualification_directive_uses_the_word_of_the_country():
 
 
 def test_the_invalid_value_directive_uses_the_word_of_the_country():
-    assert "ciudad y colonia donde vive" in invalid_directive({"city_zone": "vacío"}, "MX")
+    assert "ciudad y colonia" in invalid_directive({"city_zone": "vacío"}, "MX")
 
 
 def test_with_every_field_known_call_1_gets_the_closing_rules_instead_of_the_next_questions():

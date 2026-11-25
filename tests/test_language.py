@@ -7,7 +7,7 @@ import asyncio
 from datetime import date
 
 from test_failures import FailingLLM, http, run
-from test_turn import COMPLETE, NO_LICENCE, FakeLLM, make_agent
+from test_turn import COMPLETE, NO_LICENCE, FakeLLM, llm_fields, make_agent
 from zonia.config import MAX_TURNS, contact_email_for
 from zonia.texts.summary import render_summary
 from zonia.domain.models import ScreeningFields, Stage
@@ -80,7 +80,7 @@ def test_the_review_email_is_in_english_when_the_candidate_writes_in_english():
 
 
 def test_the_summary_is_in_english_when_the_candidate_writes_in_english():
-    all_fields = COMPLETE.model_dump(mode="json", exclude_none=True)
+    all_fields = llm_fields(COMPLETE)
     conversation = Conversation()
     fake = FakeLLM([{"fields": all_fields, "language": "en"}])
     turn = asyncio.run(run_turn(make_agent(fake), conversation, "Everything in one message"))

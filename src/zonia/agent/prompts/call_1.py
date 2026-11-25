@@ -4,19 +4,19 @@ from datetime import date
 
 from zonia.config import JOB_FACTS, local_words_for
 from zonia.domain.flow import FIELD_ORDER, open_fields
-from zonia.domain.models import Country, Language, ScreeningFields
+from zonia.domain.models import OUTSIDE_ZONE, Country, Language, ScreeningFields
 from zonia.texts.labels import AVAILABILITY, MONTHS, SCHEDULE, WEEKDAYS
 
 # {license} and {area} are the country's words (config.LOCAL_WORDS), filled by field_label().
 FIELD_LABELS_ES = {
     "full_name": "nombre completo",
-    "driver_license": "si tiene {license} vigente",
-    "city_zone": "ciudad y {area} donde vive",
+    "driver_license": "{license} vigente (sí o no)",
+    "city_zone": "ciudad y {area}",
     "availability": "disponibilidad (tiempo completo, medio tiempo o fines de semana)",
     "schedule": "horario preferido (mañana, tarde, noche o flexible)",
     "experience_years": "años de experiencia como repartidor",
-    "experience_platform": "plataforma o empresa donde trabajó de repartidor",
-    "start_date": "fecha en que puede empezar",
+    "experience_platform": "plataforma o empresa de su experiencia como repartidor",
+    "start_date": "fecha de inicio",
 }
 
 # Added to an open field in the "Falta" list: how to ask it.
@@ -118,7 +118,9 @@ def turn_instructions(
         parts.append(
             "Pregunta por los 1 o 2 primeros que falten y que el mensaje del candidato no traiga ya. "
             "Si falta el nombre, pregunta solo el nombre. Nunca preguntes algo que ya sabes. "
-            "No leas la lista de zonas de servicio al candidato: pregunta dónde vive."
+            "No leas la lista de zonas de servicio al candidato: pregunta dónde vive. "
+            "Si dice solo una ciudad que está fuera de todas las zonas de servicio, no preguntes el "
+            f"{local_words_for(country)['area']}: guarda la ciudad en city_zone y '{OUTSIDE_ZONE}' en service_zone."
         )
     else:
         parts.append(CLOSING_RULES)

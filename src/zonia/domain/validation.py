@@ -14,6 +14,27 @@ from zonia.domain.models import ScreeningFields
 MAX_EXPERIENCE_YEARS = 90
 
 
+def start_date_from(day: int, month: int, year: int | None, today: date) -> date | None:
+    """The start date from what the candidate said, or None if that day does not exist (for example 30 February).
+
+    With a year, that year, even if the date has passed: validate() then rejects it.
+    Without a year, the next time that day comes, from today on (a 29 February can be up to 4 years ahead).
+    """
+    if year is not None:
+        try:
+            return date(year, month, day)
+        except ValueError:
+            return None
+    for y in range(today.year, today.year + 5):
+        try:
+            d = date(y, month, day)
+        except ValueError:
+            continue
+        if d >= today:
+            return d
+    return None
+
+
 def validate(fields: ScreeningFields, today: date) -> dict[str, str]:
     """The fields that are not valid, each with the reason in Spanish, for Sonia to say."""
     problems = {}

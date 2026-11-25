@@ -255,6 +255,23 @@ class Storage:
                     (conversation_id, Role.AGENT, reminder, now),
                 )
 
+    def save_call_failure(self, conversation_id: int, status: Status, notice: str) -> None:
+        """Save a voice call that broke: the new status and Sonia's notice, which the voice page said.
+
+        No turn ran, so the stage, fields and history do not change.
+        """
+        now = self.clock().isoformat()
+        with self.db:
+            updated = self.db.execute(
+                "UPDATE conversations SET status = ?, updated_at = ? WHERE id = ?", (status.value, now, conversation_id)
+            )
+            if updated.rowcount == 0:
+                raise KeyError(conversation_id)
+            self.db.execute(
+                "INSERT INTO messages (conversation_id, role, text, created_at) VALUES (?, ?, ?, ?)",
+                (conversation_id, Role.AGENT, notice, now),
+            )
+
     def conversations(self) -> list[ConversationRow]:
         """Every conversation, newest first."""
         rows = self.db.execute(

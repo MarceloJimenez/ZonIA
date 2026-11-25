@@ -11,8 +11,10 @@ from fastapi.testclient import TestClient
 from test_turn import FakeLLM, make_agent
 from test_whatsapp import FakeSender
 from zonia.adapters.app import create_app
-from zonia.config import GREETING
+from zonia.config import GREETING, contact_email_for
+from zonia.domain.models import Status
 from zonia.storage import Storage
+from zonia.texts.replies import CONTACT_REPLY
 
 KEY = "voice-key"
 AUTH = {"authorization": f"Bearer {KEY}"}
@@ -166,3 +168,49 @@ def test_the_voice_page_has_the_turn_circle_and_the_call_controls(db):
     page = test_client.get(f"/voice/{apply(test_client)}").text
     for control in ['id="orb"', 'id="start"', 'id="mute"', 'id="stop"']:
         assert control in page
+
+
+def settings_of(page) -> dict:
+    """The voice page's JSON settings."""
+    return json.loads(page.text.split("const settings = ")[1].split(";\n")[0])
+
+
+def status_and_messages(db, case_code: str) -> tuple[str, list[tuple[str, str]]]:
+    storage = Storage(db)
+    conversation_id = storage.find_by_case_code(case_code)
+    return storage.load(conversation_id).status, storage.messages(conversation_id)
+
+
+def test_the_voice_page_carries_the_technical_problem_notice_with_the_countrys_email(db):
+    test_client = client(db, FakeLLM([]))
+    settings = settings_of(test_client.get(f"/voice/{apply(test_client)}"))
+    assert settings["failureNotice"] == CONTACT_REPLY["es"].format(email=contact_email_for("ES"))
+    assert settings["speechLang"] == "es-ES"
+
+
+def test_a_broken_call_saves_sonias_notice_once_and_marks_a_technical_error(db):
+    test_client = client(db, FakeLLM([]))
+    case_code = apply(test_client)
+    notice = CONTACT_REPLY["es"].format(email=contact_email_for("ES"))
+    first = test_client.post(f"/voice/{case_code}/failure")
+    second = test_client.post(f"/voice/{case_code}/failure")  # the page can report one break twice
+    assert first.json() == second.json() == {"notice": notice}
+    status, messages = status_and_messages(db, case_code)
+    assert status == Status.TECHNICAL_ERROR
+    assert messages.count(("agent", notice)) == 1
+    assert messages[-1] == ("agent", notice)
+
+
+def test_a_call_that_ends_after_a_final_status_gets_no_notice(db):
+    test_client = client(db, FakeLLM([]))
+    case_code = apply(test_client)
+    storage = Storage(db)
+    with storage.db:
+        storage.db.execute("UPDATE conversations SET status = ? WHERE case_code = ?", (Status.QUALIFIED.value, case_code))
+    before = status_and_messages(db, case_code)
+    assert test_client.post(f"/voice/{case_code}/failure").json() == {"notice": None}
+    assert status_and_messages(db, case_code) == before
+
+
+def test_a_broken_call_with_an_unknown_case_code_is_not_found(db):
+    assert client(db, FakeLLM([])).post("/voice/AAAA-BBBB/failure").status_code == 404

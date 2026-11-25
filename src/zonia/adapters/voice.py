@@ -15,7 +15,11 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from zonia.adapters.conversations import Conversations
-from zonia.domain.models import Role
+from zonia.config import contact_email_for
+from zonia.domain.conversation import Conversation
+from zonia.domain.flow import FINAL_STATUSES
+from zonia.domain.models import Role, Status
+from zonia.texts.replies import CONTACT_REPLY
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +35,11 @@ def voice_stream(reply: str):
     yield f"data: {json.dumps(chunk | {'choices': [text]}, ensure_ascii=False)}\n\n"
     yield f"data: {json.dumps(chunk | {'choices': [stop]})}\n\n"
     yield "data: [DONE]\n\n"
+
+
+def call_failure_notice(conversation: Conversation) -> str:
+    """What Sonia says when a voice call breaks: there is a technical problem, and how to reach a person."""
+    return CONTACT_REPLY[conversation.language].format(email=contact_email_for(conversation.country))
 
 
 def voice_routes(
@@ -51,12 +60,37 @@ def voice_routes(
             if conversation_id is None:
                 raise HTTPException(status_code=404)
             messages = storage.messages(conversation_id)
+            conversation = storage.load(conversation_id)
         if all(role == Role.AGENT for role, _ in messages):
             first_message = " ".join(text for _, text in messages)
         else:
             first_message = next(text for role, text in reversed(messages) if role == Role.AGENT)
-        context = {"case_code": case_code, "messages": messages, "agent_id": elevenlabs_agent_id, "first_message": first_message}
+        context = {
+            "case_code": case_code, "messages": messages, "agent_id": elevenlabs_agent_id,
+            "first_message": first_message, "failure_notice": call_failure_notice(conversation),
+            "speech_lang": f"{conversation.language}-{conversation.country}",  # for the browser's voice: es-ES, es-MX
+        }
         return templates.TemplateResponse(request, "voice.html", context)
+
+    @router.post("/voice/{case_code}/failure")
+    async def call_failure(case_code: str) -> dict:
+        """The voice page tells us that the call broke. Sonia's notice is saved and the case goes to technical_error.
+
+        A call can break anywhere (ngrok, ElevenLabs, the LLM), so the page says the notice itself.
+        If the conversation already has a final status, the call ended because the conversation ended: no notice.
+        """
+        async with conversations.open(case_code) as storage:
+            conversation_id = storage.find_by_case_code(case_code)
+            if conversation_id is None:
+                raise HTTPException(status_code=404)
+            conversation = storage.load(conversation_id)
+            if conversation.status in FINAL_STATUSES:
+                return {"notice": None}
+            notice = call_failure_notice(conversation)
+            if storage.messages(conversation_id)[-1:] != [(Role.AGENT, notice)]:  # the page can report one break twice
+                storage.save_call_failure(conversation_id, Status.TECHNICAL_ERROR, notice)
+                logger.warning("voice %s | the call broke; Sonia said the technical-problem notice", case_code)
+        return {"notice": notice}
 
     @router.post("/voice/chat/completions")
     async def voice_turn(request: Request) -> StreamingResponse:

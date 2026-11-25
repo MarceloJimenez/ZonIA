@@ -33,9 +33,12 @@
 </div>
 <script type="module">
 // ElevenLabs turns speech into text and calls /voice/chat/completions; the case code goes as extra body.
+// If the call breaks for any reason, this page says Sonia's technical-problem notice: the server may not be reachable.
 import { Conversation } from "https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.35.0/+esm";
 
-const settings = {{ {"agentId": agent_id, "caseCode": case_code, "firstMessage": first_message} | tojson }};
+const settings = {{ {"agentId": agent_id, "caseCode": case_code, "firstMessage": first_message, "failureNotice": failure_notice, "speechLang": speech_lang} | tojson }};
+// Milliseconds to wait for Sonia after the candidate speaks. The server gives up at 15 s and sends the failure reply.
+const REPLY_WAIT = 20000;
 const chat = document.getElementById("chat");
 const status = document.getElementById("status");
 const start = document.getElementById("start");
@@ -49,6 +52,9 @@ let muted = false;
 let mode = "listening";  // who has the turn: "speaking" (Sonia) or "listening" (Sonia listens)
 let level = 0;
 let frame = 0;
+let hangingUp = false;  // the candidate pressed "Colgar": the call ends normally
+let broken = false;  // the break is already handled, so the notice comes once
+let replyTimer = 0;
 
 // The circle shows the turn: connecting, speaking, listening or ended. data-muted adds the crossed microphone.
 function show(state, text) {
@@ -102,6 +108,7 @@ function add(who, text, mine) {
 
 function ended(text) {
   conversation = null;
+  clearTimeout(replyTimer);
   cancelAnimationFrame(frame);
   orb.style.setProperty("--level", 0);
   setMuted(false);
@@ -114,11 +121,48 @@ function ended(text) {
   home.hidden = false;
 }
 
+// Sonia's notice in the chat and out loud with the browser's voice, because the ElevenLabs voice is gone.
+function speak(text) {
+  try {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = settings.speechLang;
+    speechSynthesis.speak(utterance);
+  } catch (error) {
+    // No browser voice: the notice is still on the page.
+  }
+}
+
+// The call broke. The server saves the notice and marks the case; if it does not answer, the page still says it.
+// The server answers no notice when the conversation has a final status: the call ended with the conversation.
+async function callBroke() {
+  if (broken) return;
+  broken = true;
+  const session = conversation;
+  ended("Llamada cortada.");
+  try { await session?.endSession(); } catch (error) { /* already closed */ }
+  let notice = settings.failureNotice;
+  try {
+    const response = await fetch(`/voice/${encodeURIComponent(settings.caseCode)}/failure`, {method: "POST"});
+    if (response.ok) notice = (await response.json()).notice;
+  } catch (error) {
+    // The server is not reachable: keep the notice that came with the page.
+  }
+  if (!notice) {
+    show("ended", "Llamada terminada.");
+    return;
+  }
+  add("Sonia", notice, false);
+  speak(notice);
+  show("ended", "Problema técnico. Lee el mensaje de Sonia.");
+}
+
 start.addEventListener("click", async () => {
   start.disabled = true;
   home.hidden = true;
   show("connecting", "Conectando…");
   greeted = false;
+  hangingUp = false;
+  broken = false;
   mode = "listening";
   try {
     conversation = await Conversation.startSession({
@@ -127,10 +171,21 @@ start.addEventListener("click", async () => {
       customLlmExtraBody: {case_code: settings.caseCode},
       overrides: {agent: {firstMessage: settings.firstMessage}},
       onConnect: () => { show("listening", "Habla cuando quieras."); stop.disabled = false; mute.disabled = false; },
-      onDisconnect: () => ended("Llamada terminada."),
-      onError: () => ended("No pude conectar la llamada. Inténtalo de nuevo."),
-      onModeChange: (change) => { mode = change.mode; showTurn(); },
+      onDisconnect: (details) => {
+        if (broken) return;
+        if (hangingUp || details?.reason === "user") ended("Llamada terminada.");
+        else callBroke();  // "error", or "agent": ElevenLabs ended the call
+      },
+      onError: () => callBroke(),
+      onModeChange: (change) => {
+        mode = change.mode;
+        if (mode === "speaking") clearTimeout(replyTimer);
+        showTurn();
+      },
       onMessage: ({source, message}) => {
+        // After the candidate speaks, Sonia must answer within REPLY_WAIT; silence counts as a broken call.
+        clearTimeout(replyTimer);
+        if (source === "user") replyTimer = setTimeout(callBroke, REPLY_WAIT);
         // The first message is Sonia's last message, already on the page.
         if (source === "ai" && !greeted) { greeted = true; return; }
         if (source === "ai") settings.firstMessage = message;
@@ -139,13 +194,15 @@ start.addEventListener("click", async () => {
     });
     frame = requestAnimationFrame(animate);
   } catch (error) {
-    ended("No pude usar el micrófono. Revisa el permiso del navegador.");
+    if (error?.name === "NotAllowedError") ended("No pude usar el micrófono. Revisa el permiso del navegador.");
+    else callBroke();
   }
 });
 
 mute.addEventListener("click", () => setMuted(!muted));
 
 stop.addEventListener("click", async () => {
+  hangingUp = true;
   await conversation?.endSession();
   ended("Llamada terminada.");
 });

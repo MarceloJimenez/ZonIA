@@ -27,8 +27,9 @@
 <p class="zn-apply__hint">¿Cómo quieres hablar con nosotros?</p>
 <div class="zn-apply__channels">
 <button class="zn-btn zn-btn--primary" type="submit" name="channel" value="chat">Por chat</button>
-<button class="zn-btn zn-btn--primary" type="submit" name="channel" value="voice">Por voz</button>
+<button class="zn-btn zn-btn--primary" type="submit" name="channel" value="voice"{% if not voice_on %} disabled{% endif %}>Por voz</button>
 </div>
+{% if not voice_on %}<p class="zn-apply__note">La voz no está configurada: añade ELEVENLABS_AGENT_ID y ELEVENLABS_LLM_KEY en .env. Ver README.</p>{% endif %}
 </form>
 </div>
 <script>

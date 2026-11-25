@@ -95,7 +95,7 @@ def test_a_request_without_the_key_is_refused(db):
 def test_with_no_key_configured_voice_is_off(db):
     app = create_app(db, make_agent(FakeLLM([{}])), FakeSender(), "secret", "verify")
     response = TestClient(app).post("/voice/chat/completions", json=request_body("AAAA-BBBB", "Hola"), headers={"authorization": "Bearer "})
-    assert response.status_code == 401
+    assert response.status_code == 404  # without the ElevenLabs settings there is no voice route
 
 
 def test_with_no_meta_variables_the_whatsapp_webhook_is_off(db):
@@ -103,6 +103,16 @@ def test_with_no_meta_variables_the_whatsapp_webhook_is_off(db):
     test_client = TestClient(app, follow_redirects=False)
     assert test_client.post("/webhooks/whatsapp", json={}).status_code == 404
     assert test_client.post("/applications", data={"phone": "+34600111222", "country": "ES"}).status_code == 303
+
+
+def test_with_no_elevenlabs_settings_the_voice_button_is_disabled_with_a_note(db):
+    test_client = TestClient(create_app(db, make_agent(FakeLLM([{}])), None), follow_redirects=False)
+    page = test_client.get("/apply").text
+    assert 'value="voice" disabled>' in page
+    assert "La voz no está configurada" in page
+    response = test_client.post("/applications", data={"phone": "+34600111222", "country": "ES", "channel": "voice"})
+    assert response.headers["location"].startswith("/chat/")
+    assert test_client.get(response.headers["location"].replace("/chat/", "/voice/")).status_code == 404
 
 
 def test_an_unknown_case_code_is_not_found(db):

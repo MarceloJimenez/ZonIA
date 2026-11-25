@@ -39,8 +39,10 @@ def create_app(
     app = FastAPI(title="ZonIA")
     templates = add_static_and_templates(app)
     conversations = Conversations(db_path, agent)  # one for the three channels, so they share the locks
-    app.include_router(web_routes(conversations, templates))
-    app.include_router(voice_routes(conversations, templates, elevenlabs_agent_id, voice_key))
+    voice_on = bool(elevenlabs_agent_id and voice_key)  # without both, the voice button is disabled
+    app.include_router(web_routes(conversations, templates, voice_on))
+    if voice_on:
+        app.include_router(voice_routes(conversations, templates, elevenlabs_agent_id, voice_key))
     if sender is not None:  # without the Meta variables there is no webhook, so nobody can post unsigned messages
         app.include_router(whatsapp_routes(conversations, sender, app_secret, verify_token))
     return app

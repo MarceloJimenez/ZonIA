@@ -25,7 +25,7 @@ def db(tmp_path):
 
 def client(db, fake: FakeLLM, agent=None) -> TestClient:
     agent = agent or make_agent(fake)
-    return TestClient(create_app(db, agent, FakeSender(), "secret", "verify"), follow_redirects=False)
+    return TestClient(create_app(db, agent, FakeSender(), "secret", "verify", "agent_test", "voice-key"), follow_redirects=False)
 
 
 def apply(test_client: TestClient, phone: str, country: str = "ES") -> str:

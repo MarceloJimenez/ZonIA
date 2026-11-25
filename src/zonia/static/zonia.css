@@ -164,6 +164,8 @@ td.late { color: var(--warn-ink); font-weight: 600; }
 .zn-webchat__form .zn-btn:disabled { opacity: .5; cursor: default; }
 .zn-apply__hint { margin: 0; }
 .zn-apply__channels { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.zn-apply__channels .zn-btn:disabled { opacity: .5; cursor: default; }
+.zn-apply__note { margin: 0; font-size: 13px; color: var(--ink-muted); }
 .zn-apply__countries { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; border: 0; }
 .zn-apply__countries legend { padding: 0; margin-bottom: 6px; }
 .zn-apply__country { display: flex; align-items: flex-start; gap: var(--space-3); padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-md); cursor: pointer; }

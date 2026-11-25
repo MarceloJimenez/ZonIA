@@ -30,22 +30,23 @@ def international_phone(phone: str) -> str | None:
     return phone if INTERNATIONAL_PHONE.fullmatch(phone) else None
 
 
-def apply_context(phone: str, country: str, error: str | None) -> dict:
-    """What the apply page shows: the job facts, the countries with their service zones, and the phone field."""
+def apply_context(phone: str, country: str, error: str | None, voice_on: bool) -> dict:
+    """What the apply page shows: the job facts, the countries with their service zones, the phone field and the channels."""
     countries = [
         {"code": code, "name": name, "zones": zones_for(code), "demo_phone": DEMO_PHONES[code]}
         for code, name in COUNTRY_NAMES.items()
     ]
-    return {"facts": JOB_FACTS, "countries": countries, "country": country, "phone": phone, "error": error}
+    return {"facts": JOB_FACTS, "countries": countries, "country": country, "phone": phone, "error": error, "voice_on": voice_on}
 
 
-def web_routes(conversations: Conversations, templates: Jinja2Templates) -> APIRouter:
+def web_routes(conversations: Conversations, templates: Jinja2Templates, voice_on: bool) -> APIRouter:
+    """voice_on: ElevenLabs is set up. Without it, the voice button is disabled and a note says what to set."""
     router = APIRouter()
 
     @router.get("/apply", response_class=HTMLResponse)
     async def apply(request: Request) -> HTMLResponse:
         """The mock job page of Grupo Sazón: the job facts and one field, the phone number."""
-        return templates.TemplateResponse(request, "apply.html", apply_context(DEMO_PHONE, "ES", None))
+        return templates.TemplateResponse(request, "apply.html", apply_context(DEMO_PHONE, "ES", None, voice_on))
 
     @router.post("/applications")
     async def applications(
@@ -62,12 +63,12 @@ def web_routes(conversations: Conversations, templates: Jinja2Templates) -> APIR
         elif e164_phone is None:
             error = PHONE_ERROR
         if error:
-            context = apply_context(phone, country if country in COUNTRY_NAMES else "ES", error)
+            context = apply_context(phone, country if country in COUNTRY_NAMES else "ES", error, voice_on)
             return templates.TemplateResponse(request, "apply.html", context, status_code=422)
         conversation = new_conversation(country)
         with conversations.storage() as storage:
             storage.create(conversation, GREETING, phone=e164_phone)
-        page = "voice" if channel == "voice" else "chat"
+        page = "voice" if channel == "voice" and voice_on else "chat"
         return RedirectResponse(f"/{page}/{conversation.case_code}", status_code=303)
 
     @router.get("/chat/{case_code}", response_class=HTMLResponse)

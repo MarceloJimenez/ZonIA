@@ -5,6 +5,7 @@ and the turn's reply into a message on the same channel. The core (zonia.agent.t
 The channels: zonia.adapters.web, zonia.adapters.voice and zonia.adapters.whatsapp.
 
 `zonia-server` starts it on http://127.0.0.1:8001. Meta and ElevenLabs need a public address: ngrok gives one.
+The WhatsApp webhook is on only when the four META_ variables are in .env.
 """
 
 import logging
@@ -23,13 +24,15 @@ from zonia.agent.llm import build_agent
 from zonia.agent.schema import Turn
 from zonia.pages import add_static_and_templates
 
+META_VARIABLES = ("META_WHATSAPP_TOKEN", "META_PHONE_NUMBER_ID", "META_APP_SECRET", "META_VERIFY_TOKEN")
+
 
 def create_app(
     db_path: str | Path,
     agent: Agent[None, Turn],
-    sender: Sender,
-    app_secret: str,
-    verify_token: str,
+    sender: Sender | None,
+    app_secret: str = "",
+    verify_token: str = "",
     elevenlabs_agent_id: str = "",
     voice_key: str = "",
 ) -> FastAPI:
@@ -38,7 +41,8 @@ def create_app(
     conversations = Conversations(db_path, agent)  # one for the three channels, so they share the locks
     app.include_router(web_routes(conversations, templates))
     app.include_router(voice_routes(conversations, templates, elevenlabs_agent_id, voice_key))
-    app.include_router(whatsapp_routes(conversations, sender, app_secret, verify_token))
+    if sender is not None:  # without the Meta variables there is no webhook, so nobody can post unsigned messages
+        app.include_router(whatsapp_routes(conversations, sender, app_secret, verify_token))
     return app
 
 
@@ -47,12 +51,13 @@ def main() -> None:
 
     settings.load()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", datefmt="%H:%M:%S")
+    whatsapp = all(os.environ.get(name) for name in META_VARIABLES)
     app = create_app(
         settings.db_path(),
         build_agent(),
-        MetaSender.from_env(),
-        os.environ["META_APP_SECRET"],
-        os.environ["META_VERIFY_TOKEN"],
+        MetaSender.from_env() if whatsapp else None,
+        os.environ.get("META_APP_SECRET", ""),
+        os.environ.get("META_VERIFY_TOKEN", ""),
         os.environ.get("ELEVENLABS_AGENT_ID", ""),
         os.environ.get("ELEVENLABS_LLM_KEY", ""),
     )

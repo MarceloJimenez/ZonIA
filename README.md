@@ -2,71 +2,78 @@
 
 Sonia is an AI agent that screens delivery-driver candidates for Grupo Sazón, a restaurant chain in Spain and Mexico. She talks with each candidate by text or by voice, collects the screening data, checks the hard requirements, and leaves a summary for the recruiter.
 
-## Setup
+## Try the demo
 
-You need Python 3.12 or newer and [uv](https://docs.astral.sh/uv/).
+You need three things:
 
-1. Install the dependencies: `uv sync`.
-2. Create a file `.env` in the project folder with the variables below.
-3. Run the tests: `uv run pytest`.
+- Python 3.12 or newer.
+- [uv](https://docs.astral.sh/uv/), the Python package manager.
+- An API key for an LLM with an OpenAI-compatible endpoint, for example a [Gemini API key](https://aistudio.google.com/apikey).
 
-Sonia's model, its settings and her system prompt are in `src/zonia/agent/sonia.yaml`, a [Pydantic AI agent spec](https://ai.pydantic.dev/agent-spec/).
-Its `metadata.version` names the prompt: each message Sonia writes saves it, for example `sonia@1`.
-When the text the LLM reads changes, `tests/test_prompt_version.py` fails until you raise the version.
+Steps:
 
-| Variable | Needed by | What it is |
-|---|---|---|
-| `ZONIA_BASE_URL` | every command that calls the LLM | An OpenAI-compatible endpoint. For Gemini: `https://generativelanguage.googleapis.com/v1beta/openai/` |
-| `ZONIA_API_KEY` | same | The API key of that provider. |
-| `ZONIA_DB` | optional | The SQLite database file. Default: `zonia.db`. |
-| `ZONIA_COUNTRY` | optional, `zonia` only | `ES` (Spain) or `MX` (Mexico) for a new terminal chat. Default: `ES`. |
-| `META_APP_SECRET`, `META_VERIFY_TOKEN`, `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID` | `zonia-server` | Meta's WhatsApp Cloud API. The server does not start without them. For the web chat only, any value works. |
-| `ELEVENLABS_AGENT_ID` | `zonia-server`, voice | The id of the ElevenLabs agent. |
-| `ELEVENLABS_LLM_KEY` | `zonia-server`, voice | A secret you make (for example `openssl rand -hex 32`). ElevenLabs sends it on each request. Use a different value from the LLM key. |
+1. In the project folder, install the dependencies: `uv sync`.
+2. Create a file `.env` in the project folder with these two lines:
 
-## Run it
+   ```text
+   ZONIA_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+   ZONIA_API_KEY=<your API key>
+   ```
+
+3. Start the candidate side: `uv run zonia-server`.
+4. In a second terminal, start the recruiter dashboard: `uv run zonia-dashboard`.
+5. Open http://127.0.0.1:8001/apply. This is a mock job page.
+6. Choose the country: España or México. The phone field fills in a test number for that country.
+7. Click "Por chat".
+8. Chat with Sonia as a candidate.
+9. Open http://127.0.0.1:8000 to see the candidate as the recruiter sees them: the status, the data and the summary.
+
+### Voice (optional)
+
+Voice needs an [ElevenLabs](https://elevenlabs.io/) agent and a public address for the server. ElevenLabs turns speech into text, calls Sonia's server, and turns her reply into speech.
+
+1. Add two lines to `.env`. `ELEVENLABS_AGENT_ID` is the id of the ElevenLabs agent. `ELEVENLABS_LLM_KEY` is a secret you make, for example with `openssl rand -hex 32`.
+2. Give the server a public address, for example `ngrok http 8001`.
+3. In the ElevenLabs agent, choose the "custom LLM" option and set its URL to `<public address>/voice`.
+4. Add the value of `ELEVENLABS_LLM_KEY` as the agent's API key secret.
+5. In the agent's security settings, allow overrides of the first message and of the custom LLM extra body.
+6. Publish the agent. Calls use the published version, not the draft.
+7. Restart `uv run zonia-server`.
+8. On http://127.0.0.1:8001/apply, choose the country and click "Por voz".
+
+## For developers
+
+### Commands
 
 | Command | What it does |
 |---|---|
 | `uv run zonia` | Chat with Sonia in the terminal. `uv run zonia <id>` continues a saved conversation. |
-| `uv run zonia-server` | The candidate side on http://127.0.0.1:8001: the job page, the web chat, voice, and the WhatsApp webhook. |
-| `uv run zonia-dashboard` | The recruiter dashboard on http://127.0.0.1:8000: every candidate, the status, the data and the summary. |
 | `uv run zonia-followups` | Checks every open conversation once and sends the reminders that are due. In production a scheduler (for example cron) runs it every minute. |
 | `uv run pytest` | The unit tests, with a fake LLM. |
 | `uv run python evals/run.py` | The evals: 29 scripted conversations with the real LLM. See [evals/README.md](evals/README.md). |
 | `uv run python evals/samples.py` | Writes the sample conversations in [deliverables/sample-conversations/](deliverables/sample-conversations/). |
 
-### Web chat
+### Variables in `.env`
 
-1. Start `uv run zonia-server`.
-2. Open http://127.0.0.1:8001/apply. This is a mock job page with the job facts.
-3. Write a phone number that starts with `+34` (Spain) or `+52` (Mexico), and send it. The page starts with a test number.
-4. The chat opens at `/chat/<case code>`. The case code is the conversation's public id.
+| Variable | Needed by | What it is |
+|---|---|---|
+| `ZONIA_BASE_URL` | every command that calls the LLM | An OpenAI-compatible endpoint. |
+| `ZONIA_API_KEY` | same | The API key of that provider. |
+| `ZONIA_DB` | optional | The SQLite database file. Default: `zonia.db`. |
+| `ZONIA_COUNTRY` | optional, `zonia` only | `ES` (Spain) or `MX` (Mexico) for a new terminal chat. Default: `ES`. |
+| `ELEVENLABS_AGENT_ID`, `ELEVENLABS_LLM_KEY` | optional, voice | See [Voice (optional)](#voice-optional). |
+| `META_APP_SECRET`, `META_VERIFY_TOKEN`, `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID` | optional | Meta's WhatsApp Cloud API. The WhatsApp channel is not finished. Without these variables, the server starts without it. |
 
-### Voice
+### Sonia's prompt
 
-Voice uses an ElevenLabs agent with the "custom LLM" option. ElevenLabs turns speech into text, calls Sonia's server, and turns her reply into speech.
-
-1. Give the server a public address, for example `ngrok http 8001`.
-2. In the ElevenLabs agent, set the custom LLM URL to `<public address>/voice`.
-3. Add the value of `ELEVENLABS_LLM_KEY` as the agent's API key secret.
-4. In the agent's security settings, allow overrides of the first message and of the custom LLM extra body.
-5. Publish the agent. Calls use the published version, not the draft.
-6. In the web chat, click "Hablar por voz".
-
-### WhatsApp
-
-1. Create a Meta app with the WhatsApp product, and fill in the four `META_` variables.
-2. Give the server a public address, for example `ngrok http 8001`.
-3. In the Meta app, set the webhook URL to `<public address>/webhooks/whatsapp` and the verify token to `META_VERIFY_TOKEN`.
-
-Meta delivers messages only after the business is verified. Until then, the web chat is the demo channel.
+Sonia's model, its settings and her system prompt are in `src/zonia/agent/sonia.yaml`, a [Pydantic AI agent spec](https://ai.pydantic.dev/agent-spec/).
+Its `metadata.version` names the prompt: each message Sonia writes saves it, for example `sonia@1`.
+When the text the LLM reads changes, `tests/test_prompt_version.py` fails until you raise the version.
 
 ## Architecture
 
 ```text
- WhatsApp ─┐
- Web chat ─┼─> adapters (src/zonia/adapters/) ─────────> core: one turn (src/zonia/agent/turn.py) ──> LLM
+ Web chat ─┬─> adapters (src/zonia/adapters/) ─────────> core: one turn (src/zonia/agent/turn.py) ──> LLM
  Voice ────┘                                                   │
  Terminal (src/zonia/cli.py) ───────────────────────────────────┤
                                                                └──> SQLite (src/zonia/storage.py)
@@ -98,7 +105,7 @@ Meta delivers messages only after the business is verified. Until then, the web 
 - Save the candidate's message before the LLM call, so a crash does not lose it.
 - Warn the candidate before the turn limit (60 messages).
 - Voice: answer the "..." that ElevenLabs sends on silence without an LLM call, and end the call after a long silence.
-- Accept voice notes and locations on WhatsApp.
+- Finish the WhatsApp channel: the adapter is written, but it is not tested with real messages. Then accept voice notes and locations.
 - Consider other languages of Spain and Mexico, such as Catalan or Nahuatl.
 
 ## Deliverables

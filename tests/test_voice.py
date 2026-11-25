@@ -98,6 +98,13 @@ def test_with_no_key_configured_voice_is_off(db):
     assert response.status_code == 401
 
 
+def test_with_no_meta_variables_the_whatsapp_webhook_is_off(db):
+    app = create_app(db, make_agent(FakeLLM([{}])), None)
+    test_client = TestClient(app, follow_redirects=False)
+    assert test_client.post("/webhooks/whatsapp", json={}).status_code == 404
+    assert test_client.post("/applications", data={"phone": "+34600111222"}).status_code == 303
+
+
 def test_an_unknown_case_code_is_not_found(db):
     test_client = client(db, FakeLLM([{}]))
     response = test_client.post("/voice/chat/completions", json=request_body("AAAA-BBBB", "Hola"), headers=AUTH)

@@ -71,7 +71,7 @@ async def run_turn(
         text,
         message_history=c.history,
         output_type=turn_model(c.country),
-        instructions=turn_instructions(c.fields, today, language=c.language, country=c.country),
+        instructions=turn_instructions(c.fields, today, language=c.language, country=c.country, status=c.status),
     )
     fields, problems = _merge_fields(c, result.output.fields, today)
     intent = result.output.intent

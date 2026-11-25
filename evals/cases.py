@@ -512,6 +512,20 @@ CASES = [
         ),
     ),
     Case(
+        # The candidate withdraws after the summary, then says it was a joke (conversation 28, 2026-11-25).
+        name="qualified_withdraws_and_comes_back",
+        inputs=Script(
+            start=ANA_QUALIFIED,
+            messages=["Ya no me interesa, retira mi candidatura", "Perdón, era una broma, mi candidatura sí sigue"],
+        ),
+        evaluators=(
+            StatusAt(0, Status.WITHDRAWN),
+            IntentAt(1, Intent.CONTINUE),
+            SummaryAt(1),
+            FinalState(Status.ACTIVE, Stage.CLOSING),
+        ),
+    ),
+    Case(
         name="goodbye_keeps_qualified",
         inputs=Script(start=ANA_QUALIFIED, messages=["Gracias, adiós"]),
         evaluators=(

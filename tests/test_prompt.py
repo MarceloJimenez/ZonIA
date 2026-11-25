@@ -6,7 +6,7 @@ from test_turn import COMPLETE, FakeLLM, make_agent
 import asyncio
 
 from zonia.config import JOB_FACTS
-from zonia.agent.prompts.call_1 import CLOSING_RULES, turn_instructions
+from zonia.agent.prompts.call_1 import CLOSING_RULES, WITHDRAWN_RULES, turn_instructions
 from zonia.agent.prompts.call_2 import DIRECTIVES, ZONE_DIRECTIVE, directive, invalid_directive
 from zonia.agent.llm import SONIA
 from zonia.agent.turn import run_turn
@@ -128,3 +128,8 @@ def test_with_every_field_known_call_1_gets_the_closing_rules_instead_of_the_nex
     assert "Pregunta por los 1 o 2 primeros" not in closing
     collecting = turn_instructions(ScreeningFields(full_name="Ana López"), date(2026, 11, 23))
     assert CLOSING_RULES not in collecting
+
+
+def test_call_1_is_told_when_the_candidate_withdrew():
+    assert WITHDRAWN_RULES in turn_instructions(COMPLETE, date(2026, 11, 23), status=Status.WITHDRAWN)
+    assert WITHDRAWN_RULES not in turn_instructions(COMPLETE, date(2026, 11, 23))

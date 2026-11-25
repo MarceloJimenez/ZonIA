@@ -4,7 +4,7 @@ from datetime import date
 
 from zonia.config import JOB_FACTS, local_words_for
 from zonia.domain.flow import FIELD_ORDER, open_fields
-from zonia.domain.models import OUTSIDE_ZONE, Country, Language, ScreeningFields
+from zonia.domain.models import OUTSIDE_ZONE, Country, Language, ScreeningFields, Status
 from zonia.texts.labels import AVAILABILITY, MONTHS, SCHEDULE, WEEKDAYS
 
 # {license} and {area} are the country's words (config.LOCAL_WORDS), filled by field_label().
@@ -33,6 +33,13 @@ CLOSING_RULES = (
     "Si dice que algo está mal pero no dice qué, pregúntale qué dato quiere cambiar. "
     "Si da un valor nuevo, ponlo en fields. "
     "No escribas el resumen: el código lo muestra cuando cambia un dato."
+)
+
+# Call 1 when the candidate withdrew: only intent continue reopens the application (zonia.domain.flow.reopens).
+WITHDRAWN_RULES = (
+    "El candidato retiró su candidatura. "
+    "Si ahora dice que quiere seguir, pon intent continue. "
+    "Si no pones continue, la candidatura sigue retirada: no le digas que sigue adelante."
 )
 
 
@@ -95,10 +102,15 @@ def language_section(language: Language) -> str:
 
 
 def turn_instructions(
-    fields: ScreeningFields, today: date, facts: list[str] = JOB_FACTS, language: Language = "es", country: Country = "ES"
+    fields: ScreeningFields,
+    today: date,
+    facts: list[str] = JOB_FACTS,
+    language: Language = "es",
+    country: Country = "ES",
+    status: Status = Status.ACTIVE,
 ) -> str:
     """What call 1 must know this turn: today's date, the language and the country's words,
-    the known fields, the open ones in order, and the job facts."""
+    the known fields, the open ones in order, the job facts, and whether the candidate withdrew."""
     known = [
         f"- {field_label(name, country)}: {_value_es(name, getattr(fields, name))}"
         for name in FIELD_ORDER
@@ -127,6 +139,8 @@ def turn_instructions(
         )
     else:
         parts.append(CLOSING_RULES)
+    if status == Status.WITHDRAWN:
+        parts.append(WITHDRAWN_RULES)
     parts.append(
         "Si el mensaje del candidato no responde a tu última pregunta y parece ruido, otra conversación "
         "o algo que no se entiende, empieza tu respuesta diciéndolo en pocas palabras "

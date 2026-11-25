@@ -33,6 +33,9 @@ def _texts() -> dict[str, Callable[[], str]]:
             texts[f"turn_instructions.{set_name}.{country}"] = (
                 lambda f=fields, c=country: turn_instructions(f, SNAPSHOTS_TODAY, country=c)
             )
+        texts[f"turn_instructions.complete.withdrawn.{country}"] = (
+            lambda c=country: turn_instructions(FIELD_SETS["complete"], SNAPSHOTS_TODAY, country=c, status=Status.WITHDRAWN)
+        )
         texts[f"turn_instructions.partial.en.{country}"] = (
             lambda c=country: turn_instructions(PARTIAL, SNAPSHOTS_TODAY, language="en", country=c)
         )

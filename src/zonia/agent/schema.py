@@ -12,7 +12,18 @@ from zonia.domain.models import OUTSIDE_ZONE, Country, Intent, Language, Screeni
 class Turn(BaseModel):
     fields: ScreeningFields
 
-    intent: Intent
+    intent: Intent = Field(
+        description=(
+            "Lo que el candidato quiere con su último mensaje. "
+            "none: responde a la pregunta o dice otra cosa, y no es ninguno de los casos siguientes. "
+            "continue: quiere seguir con su candidatura, también después de retirarla "
+            "(por ejemplo \"sí, seguimos\" o \"era una broma, mi candidatura sigue\"). "
+            "not_now: ahora no puede seguir y quiere seguir más tarde. "
+            "not_interested: ya no le interesa el puesto o retira su candidatura. "
+            "confirms_summary: dice que el resumen de sus datos es correcto. "
+            "corrects_summary: dice que un dato del resumen está mal."
+        )
+    )
 
     language: Language = Field(
         description=(

@@ -8,8 +8,8 @@
    reopens in closing: code writes the summary and no extra call is made.
 5. A new disqualification: code adds the review email and the case code to the reply.
 
-Call 1 also says the candidate's language (Spanish or English). The reply, the summary
-and the fixed texts written by code use it.
+Before call 1, code decides the language of the candidate's message (zonia.domain.language).
+Both calls, the summary and the fixed texts written by code use it.
 """
 
 from dataclasses import replace
@@ -26,6 +26,7 @@ from zonia.agent.schema import Turn, turn_model
 from zonia.config import contact_email_for
 from zonia.domain.conversation import Conversation, new_case_code
 from zonia.domain.flow import FINAL_STATUSES, decide
+from zonia.domain.language import detect_language
 from zonia.domain.models import Intent, Language, ScreeningFields, Stage, Status
 from zonia.domain.validation import start_date_from, validate
 from zonia.texts.replies import REVIEW_REPLY
@@ -67,15 +68,15 @@ async def run_turn(
     """
     c = conversation
     today = today or date.today()
+    language = detect_language(text, c.language)
     result = await agent.run(
         text,
         message_history=c.history,
         output_type=turn_model(c.country),
-        instructions=turn_instructions(c.fields, today, language=c.language, country=c.country, status=c.status),
+        instructions=turn_instructions(c.fields, today, language=language, country=c.country, status=c.status),
     )
     fields, problems = _merge_fields(c, result.output.fields, today)
     intent = result.output.intent
-    language = result.output.language
     stage, status = decide(c.stage, c.status, intent, fields)
 
     # Call 2 replaces the reply: a new status first, then a value to ask again.

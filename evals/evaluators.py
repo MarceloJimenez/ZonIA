@@ -54,7 +54,7 @@ class FieldsExtracted(Evaluator[Script, Transcript, None]):
 
 @dataclass
 class LanguageAt(Evaluator[Script, Transcript, None]):
-    """The language call 1 gave for the given turn (0 = first message): "es" or "en"."""
+    """The language code decided for the given turn (0 = first message): "es" or "en"."""
 
     turn: int
     language: str

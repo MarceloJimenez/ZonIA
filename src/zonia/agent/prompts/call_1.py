@@ -24,7 +24,29 @@ ASK_HINTS_ES = {
     "driver_license": " (en la misma pregunta, dile que si quiere puede decir para qué vehículo)",
 }
 
-LANGUAGE_NAMES_ES = {"es": "español", "en": "inglés"}
+# The examples the LLM copies word for word, in each language: we write both, the LLM translates nothing.
+CONFIRMATION_EXAMPLES = {
+    "es": '"Ok", "Okay", "Perfecto", "Súper", "Genial, gracias" o "Anotado"',
+    "en": '"Ok", "Great", "Perfect", "Got it", "Thanks" o "Noted"',
+}
+NOISE_EXAMPLES = {
+    "es": "Creo que hay otra conversación cerca y no te he entendido bien",
+    "en": "I think there is another conversation nearby and I did not understand you",
+}
+
+# The last line of call 1's instructions, in the language of the reply.
+LANGUAGE_RULES = {
+    "es": (
+        "Responde en español, aunque mensajes anteriores de la conversación estén en otro idioma. "
+        "Si el último mensaje del candidato está en un idioma que no es español ni inglés (por ejemplo portugués), "
+        "empieza diciendo en una frase que solo puedes atender en español o en inglés."
+    ),
+    "en": (
+        "Reply in English, even if earlier messages in the conversation are in another language. "
+        "If the candidate's last message is in a language that is not Spanish or English (for example Portuguese), "
+        "start by saying in one sentence that you can only help in Spanish or English."
+    ),
+}
 
 # Call 1 when every field is known: the candidate is checking the summary.
 # Code shows the summary again only when a value changes, so a "no" alone reaches the LLM.
@@ -89,16 +111,11 @@ def facts_section(facts: list[str]) -> str:
 
 
 def language_section(language: Language) -> str:
-    """Which language call 1 replies in. Design: docs/plans/Process design draft.md, section 4.3."""
-    current = LANGUAGE_NAMES_ES[language]
-    return (
-        f"Idioma actual de la conversación: {current}. "
-        "Mira solo el último mensaje del candidato, no los anteriores. "
-        "Responde en el idioma de ese mensaje, español o inglés, aunque la conversación vaya en otro. "
-        "Si mezcla los dos, responde en el que más palabras tiene. "
-        f"Si escribe en otro idioma (por ejemplo portugués), responde en {current} "
-        "y empieza diciendo en una frase que solo puedes atender en español o en inglés."
-    )
+    """Which language call 1 replies in, written in that language. Code decided it (zonia.domain.language).
+
+    It goes last, so the LLM reads it just before it writes. Design: docs/plans/Process design draft.md, section 4.3.
+    """
+    return LANGUAGE_RULES[language]
 
 
 def turn_instructions(
@@ -109,8 +126,8 @@ def turn_instructions(
     country: Country = "ES",
     status: Status = Status.ACTIVE,
 ) -> str:
-    """What call 1 must know this turn: today's date, the language and the country's words,
-    the known fields, the open ones in order, the job facts, and whether the candidate withdrew."""
+    """What call 1 must know this turn: today's date, the country's words, the known fields,
+    the open ones in order, the job facts, whether the candidate withdrew, and last the language."""
     known = [
         f"- {field_label(name, country)}: {_value_es(name, getattr(fields, name))}"
         for name in FIELD_ORDER
@@ -120,7 +137,7 @@ def turn_instructions(
         f"{i}. {field_label(name, country)}{ASK_HINTS_ES.get(name, '')}"
         for i, name in enumerate(open_fields(fields), start=1)
     ]
-    parts = [_today_es(today), language_section(language), local_words(country)]
+    parts = [_today_es(today), local_words(country)]
     if known:
         parts.append("Ya sabes:\n" + "\n".join(known))
     if missing:
@@ -129,7 +146,7 @@ def turn_instructions(
     if missing:
         parts.append(
             "Si el candidato acaba de darte un dato, empieza con una confirmación corta y variada "
-            "(por ejemplo \"Ok\", \"Okay\", \"Perfecto\", \"Súper\", \"Genial, gracias\" o \"Anotado\") y luego haz la pregunta. "
+            f"(por ejemplo {CONFIRMATION_EXAMPLES[language]}) y luego haz la pregunta. "
             "No repitas la misma confirmación dos veces seguidas. "
             "Pregunta por los 1 o 2 primeros que falten y que el mensaje del candidato no traiga ya. "
             "Si falta el nombre, pregunta solo el nombre. Nunca preguntes algo que ya sabes. "
@@ -144,8 +161,9 @@ def turn_instructions(
     parts.append(
         "Si el mensaje del candidato no responde a tu última pregunta y parece ruido, otra conversación "
         "o algo que no se entiende, empieza tu respuesta diciéndolo en pocas palabras "
-        "(por ejemplo: \"Creo que hay otra conversación cerca y no te he entendido bien\"). "
+        f"(por ejemplo: \"{NOISE_EXAMPLES[language]}\"). "
         "Luego haz la pregunta otra vez con una frase distinta de la anterior: no copies tu última pregunta. "
         "Si la pregunta tiene opciones, puedes repetir las opciones."
     )
+    parts.append(language_section(language))
     return "\n\n".join(parts)

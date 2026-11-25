@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, create_model, model_validator
 
 from zonia.config import zones_for
-from zonia.domain.models import OUTSIDE_ZONE, Country, Intent, Language, ScreeningFields
+from zonia.domain.models import OUTSIDE_ZONE, Country, Intent, ScreeningFields
 
 
 class Turn(BaseModel):
@@ -25,16 +25,8 @@ class Turn(BaseModel):
         )
     )
 
-    language: Language = Field(
-        description=(
-            "Idioma del último mensaje del candidato, sin mirar los anteriores: es (español) o en (inglés). "
-            "Si mezcla los dos, el que más palabras tiene: \"Yes, I live in Madrid, gracias\" es en. "
-            "Si escribe en otro idioma, el idioma actual de la conversación."
-        )
-    )
-
     reply: str = Field(
-        description="Tu respuesta al candidato, escrita en el idioma que pusiste en language, aunque estas "
+        description="Tu respuesta al candidato, escrita en el idioma que te indican las instrucciones, aunque estas "
         "instrucciones estén en español."
     )
 

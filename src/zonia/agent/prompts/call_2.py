@@ -1,6 +1,6 @@
 """What call 2 reads: the directive that replaces call 1's reply when the status changes or a value is not valid."""
 
-from zonia.agent.prompts.call_1 import LANGUAGE_NAMES_ES, field_label
+from zonia.agent.prompts.call_1 import field_label
 from zonia.config import local_words_for
 from zonia.domain.models import Country, Language, ScreeningFields, Status
 
@@ -33,6 +33,8 @@ ZONE_DIRECTIVE = (
     f"Dale las gracias por su tiempo y no hagas más preguntas. {NO_CONTACT}"
 )
 
+REPLY_LANGUAGE = {"es": "Responde en español.", "en": "Reply in English."}
+
 
 def directive(status: Status, fields: ScreeningFields, country: Country = "ES") -> str | None:
     """The instruction for call 2, or None. A disqualified candidate with a licence was cut by zone."""
@@ -55,5 +57,5 @@ def invalid_directive(problems: dict[str, str], country: Country = "ES") -> str:
 
 
 def reply_language(language: Language) -> str:
-    """The line added to every call 2 instruction: call 1 already decided the language."""
-    return f"Responde en {LANGUAGE_NAMES_ES[language]}."
+    """The last line of every call 2 instruction, in the language code decided."""
+    return REPLY_LANGUAGE[language]

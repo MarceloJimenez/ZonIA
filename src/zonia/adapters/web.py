@@ -13,24 +13,21 @@ from zonia.adapters.conversations import Conversations
 from zonia.config import GREETING, JOB_FACTS, zones_for
 from zonia.domain.conversation import new_conversation
 
-# The countries Sonia serves: phone prefix -> (country, digits after the prefix).
-COUNTRY_PREFIXES = {"+34": ("ES", 9), "+52": ("MX", 10)}
-PHONE_ERROR = "Escribe tu número con el prefijo de España (+34) o de México (+52)."
-COUNTRY_PHONE_ERROR = "Ese número no es de {name}. Escribe un número que empiece por {prefix}."
+# The countries Sonia serves. The candidate chooses one; the phone does not decide it (a person in Spain can have a Chilean number).
 COUNTRY_NAMES = {"ES": "España", "MX": "México"}
+PHONE_ERROR = "Escribe tu número con el prefijo de tu país, por ejemplo +34 600 000 000."
+COUNTRY_ERROR = "Elige España o México."
+# E.164, the international phone format: "+", then 8 to 15 digits, the first one not 0.
+INTERNATIONAL_PHONE = re.compile(r"\+[1-9]\d{7,14}")
 # The apply page starts with these numbers, so a demo needs no real phone. The candidate can change them.
 DEMO_PHONES = {"ES": "+34 123 456 789", "MX": "+52 55 1234 5678"}
 DEMO_PHONE = DEMO_PHONES["ES"]
 
 
-def country_for(phone: str) -> tuple[str, str] | None:
-    """(country, E.164 phone) for a phone typed on the apply page, or None when the prefix or length is wrong."""
+def international_phone(phone: str) -> str | None:
+    """The phone typed on the apply page in E.164 (for example "+34600111222"), or None when it is not a valid one."""
     phone = re.sub(r"[\s().-]", "", phone)
-    for prefix, (country, digits) in COUNTRY_PREFIXES.items():
-        rest = phone.removeprefix(prefix)
-        if phone.startswith(prefix) and rest.isdigit() and len(rest) == digits:
-            return country, phone
-    return None
+    return phone if INTERNATIONAL_PHONE.fullmatch(phone) else None
 
 
 def apply_context(phone: str, country: str, error: str | None) -> dict:
@@ -56,19 +53,17 @@ def web_routes(conversations: Conversations, templates: Jinja2Templates) -> APIR
     ) -> Response:
         """Opens a conversation with Sonia's greeting, then sends the candidate to the chosen channel: chat or voice.
 
-        The candidate chooses the country; the phone must have its prefix. With no country, the prefix decides it.
+        The candidate chooses the country. The phone can be from any country.
         """
-        match = country_for(phone)
+        e164_phone = international_phone(phone)
         error = None
-        if match is None:
+        if country not in COUNTRY_NAMES:
+            error = COUNTRY_ERROR
+        elif e164_phone is None:
             error = PHONE_ERROR
-        elif country in COUNTRY_NAMES and match[0] != country:
-            prefix = next(p for p, (c, _) in COUNTRY_PREFIXES.items() if c == country)
-            error = COUNTRY_PHONE_ERROR.format(name=COUNTRY_NAMES[country], prefix=prefix)
         if error:
             context = apply_context(phone, country if country in COUNTRY_NAMES else "ES", error)
             return templates.TemplateResponse(request, "apply.html", context, status_code=422)
-        country, e164_phone = match
         conversation = new_conversation(country)
         with conversations.storage() as storage:
             storage.create(conversation, GREETING, phone=e164_phone)

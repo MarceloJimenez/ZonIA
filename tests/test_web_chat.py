@@ -12,7 +12,7 @@ from test_turn import FakeLLM, make_agent
 from test_whatsapp import FakeSender, hanging_agent
 from zonia.adapters import conversations
 from zonia.adapters.app import create_app
-from zonia.adapters.web import DEMO_PHONE, DEMO_PHONES, PHONE_ERROR, country_for
+from zonia.adapters.web import COUNTRY_ERROR, DEMO_PHONE, DEMO_PHONES, PHONE_ERROR, international_phone
 from zonia.config import GREETING, JOB_FACTS, zones_for
 from zonia.storage import Storage
 from zonia.texts.replies import FAILURE_REPLY
@@ -28,9 +28,9 @@ def client(db, fake: FakeLLM, agent=None) -> TestClient:
     return TestClient(create_app(db, agent, FakeSender(), "secret", "verify"), follow_redirects=False)
 
 
-def apply(test_client: TestClient, phone: str) -> str:
-    """Applies with phone and returns the chat URL."""
-    response = test_client.post("/applications", data={"phone": phone})
+def apply(test_client: TestClient, phone: str, country: str = "ES") -> str:
+    """Applies with phone from country and returns the chat URL."""
+    response = test_client.post("/applications", data={"phone": phone, "country": country})
     assert response.status_code == 303
     return response.headers["location"]
 
@@ -42,7 +42,7 @@ def test_the_apply_page_shows_the_job_facts_and_the_phone_field(db):
     assert 'name="phone"' in page.text
     assert 'name="channel" value="chat"' in page.text and 'name="channel" value="voice"' in page.text
     assert f'value="{DEMO_PHONE}"' in page.text
-    assert country_for(DEMO_PHONE) == ("ES", "+34123456789")
+    assert international_phone(DEMO_PHONE) == "+34123456789"
 
 
 def test_a_spanish_phone_opens_a_spanish_conversation_with_the_greeting(db):
@@ -56,15 +56,31 @@ def test_a_spanish_phone_opens_a_spanish_conversation_with_the_greeting(db):
 
 
 def test_a_mexican_phone_opens_a_mexican_conversation(db):
-    apply(client(db, FakeLLM([])), "+52 (55) 1234-5678")
+    apply(client(db, FakeLLM([])), "+52 (55) 1234-5678", "MX")
     storage = Storage(db)
     assert storage.load(storage.find_by_phone("+525512345678")).country == "MX"
 
 
-def test_another_prefix_shows_the_error_and_opens_no_conversation(db):
-    response = client(db, FakeLLM([])).post("/applications", data={"phone": "+56 9 6346 0381"})
+def test_a_phone_from_another_country_opens_a_conversation_in_the_chosen_country(db):
+    test_client = client(db, FakeLLM([]))
+    apply(test_client, "+56 9 6346 0381", "ES")  # a Chilean number, living in Spain
+    apply(test_client, "+502 5123 4567", "MX")  # a Guatemalan number, living in Mexico
+    storage = Storage(db)
+    assert storage.load(storage.find_by_phone("+56963460381")).country == "ES"
+    assert storage.load(storage.find_by_phone("+50251234567")).country == "MX"
+
+
+def test_a_phone_with_no_prefix_shows_the_error_and_opens_no_conversation(db):
+    response = client(db, FakeLLM([])).post("/applications", data={"phone": "600 111 222", "country": "ES"})
     assert response.status_code == 422
     assert PHONE_ERROR in response.text
+    assert Storage(db).conversations() == []
+
+
+def test_no_country_shows_the_error_and_opens_no_conversation(db):
+    response = client(db, FakeLLM([])).post("/applications", data={"phone": "+34600111222"})
+    assert response.status_code == 422
+    assert COUNTRY_ERROR in response.text
     assert Storage(db).conversations() == []
 
 
@@ -113,17 +129,19 @@ def test_an_empty_message_runs_no_turn(db):
     assert fake.instructions == []
 
 
-def test_a_phone_needs_the_right_number_of_digits_for_its_country():
-    assert country_for("+34 600-111-222") == ("ES", "+34600111222")
-    assert country_for("+34 60011122") is None
-    assert country_for("600111222") is None
+def test_a_phone_needs_a_prefix_and_8_to_15_digits():
+    assert international_phone("+34 600-111-222") == "+34600111222"
+    assert international_phone("+56 9 6346 0381") == "+56963460381"
+    assert international_phone("+34 600") is None
+    assert international_phone("+1234567890123456") is None
+    assert international_phone("600111222") is None
 
 
 def test_the_apply_page_shows_both_countries_with_their_service_zones(db):
     page = client(db, FakeLLM([])).get("/apply").text
     assert 'name="country" value="ES"' in page and 'name="country" value="MX"' in page
     assert all(zone in page for zone in zones_for("ES") + zones_for("MX"))
-    assert country_for(DEMO_PHONES["MX"]) == ("MX", "+525512345678")
+    assert international_phone(DEMO_PHONES["MX"]) == "+525512345678"
 
 
 def test_the_chosen_country_opens_a_conversation_in_that_country(db):
@@ -131,10 +149,3 @@ def test_the_chosen_country_opens_a_conversation_in_that_country(db):
     assert response.status_code == 303
     storage = Storage(db)
     assert storage.load(storage.find_by_phone("+525512345678")).country == "MX"
-
-
-def test_a_phone_from_another_country_than_the_chosen_one_shows_the_error_and_opens_no_conversation(db):
-    response = client(db, FakeLLM([])).post("/applications", data={"phone": "+34 600 111 222", "country": "MX"})
-    assert response.status_code == 422
-    assert "Ese número no es de México" in response.text and "+52" in response.text
-    assert Storage(db).conversations() == []

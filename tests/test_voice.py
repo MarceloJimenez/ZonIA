@@ -30,7 +30,7 @@ def client(db, fake: FakeLLM) -> TestClient:
 
 def apply(test_client: TestClient) -> str:
     """Applies with a Spanish phone and returns the case code."""
-    response = test_client.post("/applications", data={"phone": "+34600111222"})
+    response = test_client.post("/applications", data={"phone": "+34600111222", "country": "ES"})
     return response.headers["location"].removeprefix("/chat/")
 
 
@@ -102,7 +102,7 @@ def test_with_no_meta_variables_the_whatsapp_webhook_is_off(db):
     app = create_app(db, make_agent(FakeLLM([{}])), None)
     test_client = TestClient(app, follow_redirects=False)
     assert test_client.post("/webhooks/whatsapp", json={}).status_code == 404
-    assert test_client.post("/applications", data={"phone": "+34600111222"}).status_code == 303
+    assert test_client.post("/applications", data={"phone": "+34600111222", "country": "ES"}).status_code == 303
 
 
 def test_an_unknown_case_code_is_not_found(db):
@@ -136,7 +136,7 @@ def test_after_the_candidate_answers_the_voice_page_starts_with_sonias_last_mess
 
 
 def test_applying_by_voice_opens_the_voice_page(db):
-    response = client(db, FakeLLM([])).post("/applications", data={"phone": "+34600111222", "channel": "voice"})
+    response = client(db, FakeLLM([])).post("/applications", data={"phone": "+34600111222", "country": "ES", "channel": "voice"})
     assert response.status_code == 303
     assert response.headers["location"].startswith("/voice/")
 

@@ -36,7 +36,7 @@
 // If the call breaks for any reason, this page says Sonia's technical-problem notice: the server may not be reachable.
 import { Conversation } from "https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.35.0/+esm";
 
-const settings = {{ {"agentId": agent_id, "caseCode": case_code, "firstMessage": first_message, "failureNotice": failure_notice, "speechLang": speech_lang} | tojson }};
+const settings = {{ {"agentId": agent_id, "caseCode": case_code, "firstMessage": first_message, "failureNotice": failure_notice, "speechLang": speech_lang, "unavailable": unavailable} | tojson }};
 // Milliseconds to wait for Sonia after the candidate speaks. The server gives up at 15 s and sends the failure reply.
 const REPLY_WAIT = 20000;
 const chat = document.getElementById("chat");
@@ -121,6 +121,16 @@ function ended(text) {
   home.hidden = false;
 }
 
+// The server checks the voice path (ngrok and the ElevenLabs agent) before each call.
+async function voiceReady() {
+  try {
+    const response = await fetch(`/voice/${encodeURIComponent(settings.caseCode)}/ready`);
+    return response.ok && (await response.json()).ready === true;
+  } catch (error) {
+    return false;
+  }
+}
+
 // Sonia's notice in the chat and out loud with the browser's voice, because the ElevenLabs voice is gone.
 function speak(text) {
   try {
@@ -164,6 +174,12 @@ start.addEventListener("click", async () => {
   hangingUp = false;
   broken = false;
   mode = "listening";
+  if (!(await voiceReady())) {
+    show("ended", settings.unavailable);
+    start.disabled = false;
+    home.hidden = false;
+    return;
+  }
   try {
     conversation = await Conversation.startSession({
       agentId: settings.agentId,

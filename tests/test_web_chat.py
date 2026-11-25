@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from test_turn import FakeLLM, make_agent
+from test_voice import FakeCheck
 from test_whatsapp import FakeSender, hanging_agent
 from zonia.adapters import conversations
 from zonia.adapters.app import create_app
@@ -25,7 +26,7 @@ def db(tmp_path):
 
 def client(db, fake: FakeLLM, agent=None) -> TestClient:
     agent = agent or make_agent(fake)
-    return TestClient(create_app(db, agent, FakeSender(), "secret", "verify", "agent_test", "voice-key"), follow_redirects=False)
+    return TestClient(create_app(db, agent, FakeSender(), "secret", "verify", FakeCheck(), "voice-key"), follow_redirects=False)
 
 
 def apply(test_client: TestClient, phone: str, country: str = "ES") -> str:

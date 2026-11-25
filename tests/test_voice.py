@@ -3,14 +3,17 @@
 No network: a fake LLM. The request shape is the one a probe server logged on 2026-11-23.
 """
 
+import asyncio
 import json
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from test_turn import FakeLLM, make_agent
 from test_whatsapp import FakeSender
 from zonia.adapters.app import create_app
+from zonia.adapters.voice import VOICE_UNAVAILABLE_APPLY, VOICE_UNAVAILABLE_CALL, VoiceCheck
 from zonia.config import GREETING, contact_email_for
 from zonia.domain.models import Status
 from zonia.storage import Storage
@@ -20,13 +23,27 @@ KEY = "voice-key"
 AUTH = {"authorization": f"Bearer {KEY}"}
 
 
+PUBLIC_URL = "https://public.test"
+
+
+class FakeCheck(VoiceCheck):
+    """The check before a call, with a fixed answer and no network."""
+
+    def __init__(self, works: bool = True):
+        super().__init__(PUBLIC_URL, "agent_test")
+        self.works = works
+
+    async def ready(self) -> bool:
+        return self.works
+
+
 @pytest.fixture
 def db(tmp_path):
     return tmp_path / "zonia.db"
 
 
-def client(db, fake: FakeLLM) -> TestClient:
-    app = create_app(db, make_agent(fake), FakeSender(), "secret", "verify", "agent_test", KEY)
+def client(db, fake: FakeLLM, check: VoiceCheck | None = None) -> TestClient:
+    app = create_app(db, make_agent(fake), FakeSender(), "secret", "verify", check or FakeCheck(), KEY)
     return TestClient(app, follow_redirects=False)
 
 
@@ -214,3 +231,84 @@ def test_a_call_that_ends_after_a_final_status_gets_no_notice(db):
 
 def test_a_broken_call_with_an_unknown_case_code_is_not_found(db):
     assert client(db, FakeLLM([])).post("/voice/AAAA-BBBB/failure").status_code == 404
+
+
+def test_applying_by_voice_when_the_check_fails_makes_no_conversation(db):
+    test_client = client(db, FakeLLM([]), FakeCheck(works=False))
+    response = test_client.post("/applications", data={"phone": "+34600111222", "country": "MX", "channel": "voice"})
+    assert response.status_code == 503
+    assert VOICE_UNAVAILABLE_APPLY in response.text
+    assert Storage(db).conversations() == []
+    chat = test_client.post("/applications", data={"phone": "+34600111222", "country": "MX", "channel": "chat"})
+    assert chat.headers["location"].startswith("/chat/")  # chat does not need the voice path
+
+
+def test_the_voice_page_asks_the_check_before_each_call(db):
+    check = FakeCheck()
+    test_client = client(db, FakeLLM([]), check)
+    case_code = apply(test_client)
+    assert settings_of(test_client.get(f"/voice/{case_code}"))["unavailable"] == VOICE_UNAVAILABLE_CALL
+    assert test_client.get(f"/voice/{case_code}/ready").json() == {"ready": True}
+    check.works = False
+    assert test_client.get(f"/voice/{case_code}/ready").json() == {"ready": False}
+    assert test_client.get("/voice/AAAA-BBBB/ready").status_code == 404
+
+
+def test_the_ping_answers_the_code_made_at_start(db):
+    check = FakeCheck()
+    assert client(db, FakeLLM([]), check).get("/voice/ping").text == check.code
+
+
+def agent_settings(llm: str, url: str) -> dict:
+    """The part of ElevenLabs' answer for GET /v1/convai/agents/{id} that the check reads."""
+    return {"conversation_config": {"agent": {"prompt": {"llm": llm, "custom_llm": {"url": url}}}}}
+
+
+def check_with(public_answer, agent_answer=None, api_key: str = "") -> tuple[VoiceCheck, list[httpx.Request]]:
+    """A VoiceCheck whose network is a function: the public address answers public_answer(check),
+    ElevenLabs answers agent_answer. Returns the check and the requests it made."""
+    requests: list[httpx.Request] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.host == "public.test":
+            return public_answer(check)
+        return agent_answer
+
+    check = VoiceCheck(PUBLIC_URL, "agent_test", api_key, transport=httpx.MockTransport(answer))
+    return check, requests
+
+
+def own_code(check: VoiceCheck) -> httpx.Response:
+    return httpx.Response(200, text=check.code)
+
+
+def test_the_check_passes_when_the_public_address_reaches_this_server(db):
+    check, requests = check_with(own_code)
+    assert asyncio.run(check.ready())
+    assert [str(r.url) for r in requests] == [f"{PUBLIC_URL}/voice/ping"]  # without an API key, the agent is not read
+
+
+def test_the_check_fails_when_the_public_address_is_down_or_reaches_another_server(db):
+    def offline(check):
+        raise httpx.ConnectError("offline")
+
+    assert not asyncio.run(check_with(offline)[0].ready())
+    assert not asyncio.run(check_with(lambda check: httpx.Response(404, text="ERR_NGROK_3200"))[0].ready())
+    assert not asyncio.run(check_with(lambda check: httpx.Response(200, text="another code"))[0].ready())
+
+
+def test_with_an_api_key_the_check_reads_the_agents_custom_llm_url(db):
+    good = httpx.Response(200, json=agent_settings("custom-llm", f"{PUBLIC_URL}/voice"))
+    check, requests = check_with(own_code, good, api_key="el-key")
+    assert asyncio.run(check.ready())
+    assert str(requests[1].url) == "https://api.elevenlabs.io/v1/convai/agents/agent_test"
+    assert requests[1].headers["xi-api-key"] == "el-key"
+
+
+def test_the_check_fails_when_the_agent_calls_another_url_or_another_llm(db):
+    other_url = httpx.Response(200, json=agent_settings("custom-llm", "https://old-name.ngrok-free.dev/voice"))
+    other_llm = httpx.Response(200, json=agent_settings("gemini-2.5-flash", f"{PUBLIC_URL}/voice"))
+    refused = httpx.Response(401, json={"detail": "invalid key"})
+    for answer in (other_url, other_llm, refused):
+        assert not asyncio.run(check_with(own_code, answer, api_key="el-key")[0].ready())

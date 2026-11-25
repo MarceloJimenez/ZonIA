@@ -29,7 +29,7 @@
 <button class="zn-btn zn-btn--primary" type="submit" name="channel" value="chat">Por chat</button>
 <button class="zn-btn zn-btn--primary" type="submit" name="channel" value="voice"{% if not voice_on %} disabled{% endif %}>Por voz</button>
 </div>
-{% if not voice_on %}<p class="zn-apply__note">La voz no está configurada: añade ELEVENLABS_AGENT_ID y ELEVENLABS_LLM_KEY en .env. Ver README.</p>{% endif %}
+{% if not voice_on %}<p class="zn-apply__note">La voz no está configurada: añade ELEVENLABS_AGENT_ID, ELEVENLABS_LLM_KEY y ZONIA_PUBLIC_URL en .env. Ver README.</p>{% endif %}
 </form>
 </div>
 <script>

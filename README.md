@@ -32,14 +32,17 @@ Steps:
 
 Voice needs an [ElevenLabs](https://elevenlabs.io/) agent and a public address for the server. ElevenLabs turns speech into text, calls Sonia's server, and turns her reply into speech.
 
-1. Add two lines to `.env`. `ELEVENLABS_AGENT_ID` is the id of the ElevenLabs agent. `ELEVENLABS_LLM_KEY` is a secret you make, for example with `openssl rand -hex 32`.
-2. Give the server a public address, for example `ngrok http 8001`.
+1. Add three lines to `.env`. `ELEVENLABS_AGENT_ID` is the id of the ElevenLabs agent. `ELEVENLABS_LLM_KEY` is a secret you make, for example with `openssl rand -hex 32`. `ZONIA_PUBLIC_URL` is the server's public address, for example `https://<name>.ngrok-free.dev`.
+2. Give the server that public address, for example `ngrok http 8001 --url=<public address>`.
 3. In the ElevenLabs agent, choose the "custom LLM" option and set its URL to `<public address>/voice`.
 4. Add the value of `ELEVENLABS_LLM_KEY` as the agent's API key secret.
 5. In the agent's security settings, allow overrides of the first message and of the custom LLM extra body.
 6. Publish the agent. Calls use the published version, not the draft.
 7. Restart `uv run zonia-server`.
 8. On http://127.0.0.1:8001/apply, choose the country and click "Por voz".
+
+Before each call, the server checks that its public address reaches it. If not, the call does not start and the server log says why.
+With `ELEVENLABS_API_KEY` in `.env` (an ElevenLabs API key that can read agents), it also checks that the agent's custom LLM URL is `<public address>/voice`.
 
 ## For developers
 

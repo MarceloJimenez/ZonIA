@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from zonia.adapters.conversations import Conversations
+from zonia.adapters.voice import VOICE_UNAVAILABLE_APPLY, VoiceCheck
 from zonia.config import GREETING, JOB_FACTS, zones_for
 from zonia.domain.conversation import new_conversation
 
@@ -39,9 +40,10 @@ def apply_context(phone: str, country: str, error: str | None, voice_on: bool) -
     return {"facts": JOB_FACTS, "countries": countries, "country": country, "phone": phone, "error": error, "voice_on": voice_on}
 
 
-def web_routes(conversations: Conversations, templates: Jinja2Templates, voice_on: bool) -> APIRouter:
-    """voice_on: ElevenLabs is set up. Without it, the voice button is disabled and a note says what to set."""
+def web_routes(conversations: Conversations, templates: Jinja2Templates, voice_check: VoiceCheck | None) -> APIRouter:
+    """voice_check is None when voice is not set up: the voice button is then disabled and a note says what to set."""
     router = APIRouter()
+    voice_on = voice_check is not None
 
     @router.get("/apply", response_class=HTMLResponse)
     async def apply(request: Request) -> HTMLResponse:
@@ -65,6 +67,10 @@ def web_routes(conversations: Conversations, templates: Jinja2Templates, voice_o
         if error:
             context = apply_context(phone, country if country in COUNTRY_NAMES else "ES", error, voice_on)
             return templates.TemplateResponse(request, "apply.html", context, status_code=422)
+        # A voice call starts only when its path works. Otherwise no conversation is made.
+        if channel == "voice" and voice_check is not None and not await voice_check.ready():
+            context = apply_context(phone, country, VOICE_UNAVAILABLE_APPLY, voice_on)
+            return templates.TemplateResponse(request, "apply.html", context, status_code=503)
         conversation = new_conversation(country)
         with conversations.storage() as storage:
             storage.create(conversation, GREETING, phone=e164_phone)

@@ -116,6 +116,9 @@ def turn_instructions(
     parts.append(facts_section(facts))
     if missing:
         parts.append(
+            "Si el candidato acaba de darte un dato, empieza con una confirmación corta y variada "
+            "(por ejemplo \"Ok\", \"Okay\", \"Perfecto\", \"Súper\", \"Genial, gracias\" o \"Anotado\") y luego haz la pregunta. "
+            "No repitas la misma confirmación dos veces seguidas. "
             "Pregunta por los 1 o 2 primeros que falten y que el mensaje del candidato no traiga ya. "
             "Si falta el nombre, pregunta solo el nombre. Nunca preguntes algo que ya sabes. "
             "No leas la lista de zonas de servicio al candidato: pregunta dónde vive. "

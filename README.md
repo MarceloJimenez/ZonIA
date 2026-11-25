@@ -49,7 +49,7 @@ Voice needs an [ElevenLabs](https://elevenlabs.io/) agent and a public address f
 |---|---|
 | `uv run zonia` | Chat with Sonia in the terminal. `uv run zonia <id>` continues a saved conversation. |
 | `uv run zonia-followups` | Checks every open conversation once and sends the reminders that are due. In production a scheduler (for example cron) runs it every minute. |
-| `uv run pytest` | The unit tests, with a fake LLM. |
+| `uv run pytest` | The unit tests. A stub replaces the LLM: it returns scripted replies, so the tests need no API key and no network. |
 | `uv run python evals/run.py` | The evals: 29 scripted conversations with the real LLM. See [evals/README.md](evals/README.md). |
 | `uv run python evals/samples.py` | Writes the sample conversations in [deliverables/sample-conversations/](deliverables/sample-conversations/). |
 
@@ -59,7 +59,7 @@ Voice needs an [ElevenLabs](https://elevenlabs.io/) agent and a public address f
 |---|---|---|
 | `ZONIA_BASE_URL` | every command that calls the LLM | An OpenAI-compatible endpoint. |
 | `ZONIA_API_KEY` | same | The API key of that provider. |
-| `ZONIA_DB` | optional | The SQLite database file. Default: `zonia.db`. |
+| `ZONIA_DB` | optional | Another SQLite database file. Without it, the server uses `zonia.db` in the project folder. |
 | `ZONIA_COUNTRY` | optional, `zonia` only | `ES` (Spain) or `MX` (Mexico) for a new terminal chat. Default: `ES`. |
 | `ELEVENLABS_AGENT_ID`, `ELEVENLABS_LLM_KEY` | optional, voice | See [Voice (optional)](#voice-optional). |
 | `META_APP_SECRET`, `META_VERIFY_TOKEN`, `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID` | optional | Meta's WhatsApp Cloud API. The WhatsApp channel is not finished. Without these variables, the server starts without it. |
@@ -68,7 +68,7 @@ Voice needs an [ElevenLabs](https://elevenlabs.io/) agent and a public address f
 
 Sonia's model, its settings and her system prompt are in `src/zonia/agent/sonia.yaml`, a [Pydantic AI agent spec](https://ai.pydantic.dev/agent-spec/).
 Its `metadata.version` names the prompt: each message Sonia writes saves it, for example `sonia@1`.
-When the text the LLM reads changes, `tests/test_prompt_version.py` fails until you raise the version.
+A test makes sure the prompt version is right: if you change any text the LLM reads, `tests/test_prompt_version.py` fails until you raise `metadata.version` in `sonia.yaml`.
 
 ## Architecture
 

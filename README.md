@@ -1,4 +1,6 @@
-# ZonIA
+<p align="center">
+  <img src="assets/banner.svg" alt="ZonIA" width="100%">
+</p>
 
 Sonia is an AI agent that screens delivery-driver candidates for Grupo Sazón, a restaurant chain in Spain and Mexico. She talks with each candidate by text or by voice, collects the screening data, checks the hard requirements, and leaves a summary for the recruiter.
 

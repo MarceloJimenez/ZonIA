@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" width="1280" height="400" role="img" aria-label="ZonIA: Sonia, an AI agent that screens delivery-driver candidates by chat and by voice">
+  <defs>
+    <radialGradient id="glow" cx="0.78" cy="0.35" r="0.6">
+      <stop offset="0" stop-color="#a9f36b" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#a9f36b" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#f9fcf4" fill-opacity="0.07"/>
+    </pattern>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#54de21"/></marker>
+    <style>
+      .sans { font-family: Geist, Inter, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+      .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; }
+    </style>
+  </defs>
+
+  <!-- night band -->
+  <rect width="1280" height="400" rx="18" fill="#1a2014"/>
+  <rect width="1280" height="400" rx="18" fill="url(#dots)"/>
+  <rect width="1280" height="400" rx="18" fill="url(#glow)"/>
+
+  <!-- eyebrow -->
+  <text class="sans" x="56" y="72" font-size="13" font-weight="600" letter-spacing="2" fill="#f9fcf4">AI RECRUITING AGENT</text>
+  <line x1="236" y1="67" x2="700" y2="67" stroke="#f9fcf4" stroke-opacity="0.15"/>
+
+  <!-- pill -->
+  <rect x="56" y="96" width="268" height="30" rx="15" fill="#2e3822"/>
+  <circle cx="76" cy="111" r="5" fill="#54de21"/>
+  <circle cx="76" cy="111" r="9" fill="#54de21" fill-opacity="0.2"/>
+  <text class="sans" x="92" y="116" font-size="13" font-weight="500" fill="#a9f36b">Screening agent · Text and voice</text>
+
+  <!-- wordmark -->
+  <text class="sans" x="50" y="248" font-size="132" font-weight="700" letter-spacing="-5" fill="#f9fcf4">Zon<tspan fill="#c5f5a4">IA</tspan></text>
+
+  <!-- tagline -->
+  <text class="sans" x="58" y="296" font-size="22" fill="#d0d4c6">Sonia screens delivery-driver candidates</text>
+  <text class="sans" x="58" y="326" font-size="22" fill="#d0d4c6">for Grupo Sazón, in Spain and Mexico.</text>
+
+  <!-- flow card -->
+  <rect x="760" y="48" width="472" height="304" rx="16" fill="#232b1d" stroke="#f9fcf4" stroke-opacity="0.15"/>
+  <circle cx="786" cy="80" r="5" fill="#54de21"/>
+  <text class="sans" x="800" y="85" font-size="13" font-weight="600" fill="#f9fcf4">Conversation flow</text>
+  <rect x="1012" y="66" width="196" height="26" rx="13" fill="#2e3822"/>
+  <text class="sans" x="1110" y="83" font-size="11.5" font-weight="500" fill="#d0d4c6" text-anchor="middle">WhatsApp · Web chat · Voice</text>
+  <line x1="760" y1="108" x2="1232" y2="108" stroke="#f9fcf4" stroke-opacity="0.12"/>
+
+  <!-- stages -->
+  <rect x="786" y="126" width="250" height="54" rx="10" fill="#2e3822" stroke="#f9fcf4" stroke-opacity="0.12"/>
+  <text class="mono" x="806" y="158" font-size="13" letter-spacing="1.4" fill="#b4c2a2">01  INTRODUCTION</text>
+
+  <rect x="786" y="198" width="250" height="54" rx="10" fill="#3d5230" stroke="#a9f36b" stroke-opacity="0.6"/>
+  <text class="mono" x="806" y="230" font-size="13" letter-spacing="1.4" fill="#a9f36b">02  DATA COLLECTION</text>
+  <circle cx="1016" cy="216" r="5" fill="#54de21"/>
+  <circle cx="1016" cy="216" r="9" fill="#54de21" fill-opacity="0.25"/>
+
+  <rect x="786" y="270" width="250" height="54" rx="10" fill="#2e3822" stroke="#f9fcf4" stroke-opacity="0.12"/>
+  <text class="mono" x="806" y="302" font-size="13" letter-spacing="1.4" fill="#b4c2a2">03  CLOSING</text>
+
+  <path d="M911 180V196" stroke="#54de21" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+  <path d="M911 252V268" stroke="#54de21" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+  <path d="M1036 297H1080" stroke="#54de21" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+
+  <!-- outcome -->
+  <ellipse cx="1146" cy="297" rx="62" ry="24" fill="#a9f36b"/>
+  <text class="sans" x="1146" y="302" font-size="15" font-weight="700" fill="#1a2014" text-anchor="middle">Qualified</text>
+
+  <!-- chat bubble -->
+  <path d="M1068 140h140a12 12 0 0 1 12 12v48a12 12 0 0 1-12 12h-128a12 12 0 0 1-12-12v-60z" fill="#e8eedb"/>
+  <text class="sans" x="1080" y="164" font-size="12.5" fill="#222c18">Hola, soy Sonia,</text>
+  <text class="sans" x="1080" y="182" font-size="12.5" fill="#222c18">la asistente de IA</text>
+  <text class="sans" x="1080" y="200" font-size="12.5" fill="#222c18">de Grupo Sazón.</text>
+</svg>

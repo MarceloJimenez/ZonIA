@@ -123,9 +123,10 @@ flowchart LR
 2. **Text first.** 60% of candidates do not answer phone calls, and WhatsApp is the main messaging app in Spain and Mexico. So the main channel is written messages. A web chat gives the same experience for the demo.
 3. **Voice in the browser through ElevenLabs.** ElevenLabs handles speech. Sonia's server stays the only "brain", so voice follows the same flow and the same checks as text.
 4. **Business settings are configuration, not code.** Service zones, the job facts Sonia may share, the greeting, the turn limit, the follow-up times, the contact emails and Sonia's personality are in [src/zonia/config.py](src/zonia/config.py).
-5. **Sonia never invents facts.** She answers questions only from the job facts. For anything else, she says she does not have that information.
-6. **Spanish and English, with each country's words.** Sonia replies in the candidate's language. In Spain she says "carné de conducir" and "barrio"; in Mexico, "licencia de manejo" and "colonia".
-7. **A person can always review.** A disqualified candidate gets a contact email and a case code to ask for a human review.
+5. **Sonia answers only from the job facts.** Her prompt tells her to use only the job facts and to say when she does not have the information. An LLM can still invent facts, so the evals check every conversation for invented facts (rule `no_inventa` in `evals/personas.py`).
+6. **A narrow context keeps Sonia safe.** Sonia's LLM sees only what the current candidate needs: her prompt, the job facts and that candidate's own conversation. It has no tools, no database access and no private data, so a prompt injection has nothing to reach.
+7. **Spanish and English, with each country's words.** Sonia replies in the candidate's language. In Spain she says "carné de conducir" and "barrio"; in Mexico, "licencia de manejo" and "colonia".
+8. **A person can always review.** A disqualified candidate gets a contact email and a case code to ask for a human review.
 
 ## Improvements
 

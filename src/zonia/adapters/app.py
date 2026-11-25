@@ -63,4 +63,5 @@ def main() -> None:
         os.environ.get("ELEVENLABS_AGENT_ID", ""),
         os.environ.get("ELEVENLABS_LLM_KEY", ""),
     )
+    logging.getLogger(__name__).info("Open http://127.0.0.1:8001/apply")
     uvicorn.run(app, host="127.0.0.1", port=8001)

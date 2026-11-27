@@ -25,7 +25,7 @@ settings.load()
 from pydantic_ai import Agent  # noqa: E402
 
 from conversation import AGENT, JUDGE, JUDGE_MODEL, JUDGE_SETTINGS, MODEL, PacedModel, with_retries  # noqa: E402
-from run import git_version  # noqa: E402
+from run import data_version, git_version  # noqa: E402
 from pydantic_evals.evaluators.llm_as_a_judge import judge_output  # noqa: E402
 
 from zonia.config import GREETING  # noqa: E402
@@ -232,12 +232,15 @@ Result = tuple[Persona, list[str], str, dict[str, tuple[bool, str]]]
 
 
 def write_report(results: list[Result], started: datetime) -> Path:
+    REPORTS.mkdir(exist_ok=True)
+    path = REPORTS / f"personas_{started:%Y-%m-%d_%H%M%S}.md"
     out = [
         f"# Simulated candidates {started:%Y-%m-%d %H:%M}",
         "",
         f"- Agent: {describe(SONIA)} (Sonia, and the candidates with no model of their own)",
         f"- Judge: {describe(JUDGE)}",
-        f"- Code: `{git_version()}`",
+        f"- Code: `{git_version(path)}`",
+        f"- Data: {data_version(['personas.py'], len(results), len(PERSONAS))}",
         "",
         "| Persona | Channel | Country | Candidate messages | Final status | Rules passed |",
         "|---|---|---|---|---|---|",
@@ -252,8 +255,6 @@ def write_report(results: list[Result], started: datetime) -> Path:
         out += [f"- Candidate model: `{persona.model}`", ""] if persona.model else []
         out += [f"- **{name}**: {'pass' if ok else 'FAIL'}. {reason}" for name, (ok, reason) in grades.items()]
         out += ["", "<details><summary>Transcript</summary>", "", "```text", *lines, "```", "", "</details>"]
-    REPORTS.mkdir(exist_ok=True)
-    path = REPORTS / f"personas_{started:%Y-%m-%d_%H%M%S}.md"
     path.write_text("\n".join(out) + "\n")
     return path
 

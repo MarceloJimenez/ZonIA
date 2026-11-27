@@ -70,8 +70,20 @@ def field_label(name: str, country: Country) -> str:
     return FIELD_LABELS_ES[name].format(**local_words_for(country))
 
 
-def local_words(country: Country) -> str:
-    """The line that tells every call which words to use for the licence and the area."""
+# In English, the words for the licence and the area, the same as the English summary (zonia.texts.summary).
+LOCAL_WORDS_EN = (
+    "In English, when you name the driving permit, say \"driving licence\". "
+    "When you ask what part of the city they live in, say \"area\". "
+    "Do not copy the Spanish words of the field list. "
+    "The candidate can use other words (licence, license, permit, carné, neighbourhood, barrio, colonia): "
+    "understand them all and do not correct them."
+)
+
+
+def local_words(country: Country, language: Language = "es") -> str:
+    """The line that tells every call which words to use for the licence and the area, in the reply's language."""
+    if language == "en":
+        return LOCAL_WORDS_EN
     words = local_words_for(country)
     return (
         f"En español, cuando nombres el permiso para conducir, di \"{words['license']}\". "
@@ -137,7 +149,7 @@ def turn_instructions(
         f"{i}. {field_label(name, country)}{ASK_HINTS_ES.get(name, '')}"
         for i, name in enumerate(open_fields(fields), start=1)
     ]
-    parts = [_today_es(today), local_words(country)]
+    parts = [_today_es(today), local_words(country, language)]
     if known:
         parts.append("Ya sabes:\n" + "\n".join(known))
     if missing:

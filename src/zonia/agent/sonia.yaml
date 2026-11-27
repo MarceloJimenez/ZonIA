@@ -10,7 +10,7 @@ name: sonia
 model: gemini-3.5-flash-lite
 model_settings: {}  # none: the provider uses its own defaults
 metadata:
-  version: 6
+  version: 7
 
 # The system prompt: the client's personality, then the rules that are the same for every client.
 # Design: docs/plans/Process design draft.md, section 2.

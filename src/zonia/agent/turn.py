@@ -84,7 +84,7 @@ async def run_turn(
     if call_2_directive:
         result_2 = await agent.run(
             text, message_history=c.history, output_type=str,
-            instructions=f"{call_2_directive}\n\n{local_words(c.country)}\n\n{reply_language(language)}",
+            instructions=f"{call_2_directive}\n\n{local_words(c.country, language)}\n\n{reply_language(language)}",
         )
         reply, history, calls, source = result_2.output, result_2.all_messages(), 2, ReplySource.CALL_2
         prompt_version = _prompt_version(agent, result_2.metadata)

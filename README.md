@@ -100,17 +100,32 @@ A test makes sure the prompt version is right: if you change any text the LLM re
 
 ## Improvements
 
-- After a final status, keep Sonia inside the job facts: in a test she gave opinions and invented company facts.
-- Fix a wrong zone after a correction: when a candidate corrects the zone in the summary, the LLM can mark a valid zone as outside the service area.
-- Save a change of availability made in the next turn: in a test the candidate said "Tiempo completo" (full time), then "Medio tiempo por las tardes" (part time, afternoons), and the summary kept "Tiempo completo".
-- Mark a field "needs review" after 2 failed tries, so the conversation moves on.
+Sonia handles the normal flow well. These are the next steps, grouped by topic.
+
+**Conversation.** Some edge cases still need work.
+- Keep the corrections made at the summary. Today a changed availability can be lost, and a corrected zone can be marked as outside the service area.
+- Stay inside the job facts after a final status. In one test Sonia gave opinions and invented company facts.
+- Answer "why do you want my data?", and do not read the list of zones to a disqualified candidate.
+- Move on after 2 failed tries by marking the field "needs review", and warn the candidate before the limit of 60 messages.
+- When cheating is suspected, tell the candidate that a person makes the final decision.
+
+**Privacy and the recruiter.**
+- Add a login to the dashboard. Today anyone who can reach port 8000 sees every candidate.
+- Delete an application when the candidate asks, as GDPR requires. Today Sonia only says goodbye.
+- Keep a log of events, so the recruiter sees what changed in each conversation (for example, the zone).
+- Give the recruiter tools in the dashboard: a status (called, interview, hired, rejected), notes, CSV export, one recruiter per candidate, and interview scheduling.
+
+**Reliability.**
 - Save the candidate's message before the LLM call, so a crash does not lose it.
+- Make a failed turn cheaper. Today it can send up to 12 calls to Gemini and take about 45 seconds.
+
+**Channels and languages.**
 - Send the reminders on the candidate's channel. Today `zonia-followups` only saves them in the conversation.
-- Add a login to the recruiter dashboard. Today anyone who can reach port 8000 sees every candidate.
-- Warn the candidate before the turn limit (60 messages).
-- Voice: answer the "..." that ElevenLabs sends on silence without an LLM call, and end the call after a long silence.
-- Finish the WhatsApp channel: the adapter is written, but it is not tested with real messages. Then accept voice notes and locations.
+- Finish WhatsApp: the adapter is written, but it is not tested with real messages. Then accept voice notes and locations.
+- Make voice calls smoother: handle silence and filler sounds ("...", "Eh") without an LLM call and without hurrying the candidate, end the call after a long silence, and replace "Espero que escribas" with a phrase that fits a call.
 - Consider other languages of Spain and Mexico, such as Catalan or Nahuatl.
+
+**Evals.** Make the judge (the LLM that checks the rules) more exact. Today it marks some correct replies as failures and misses some real problems.
 
 ## Deliverables
 

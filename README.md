@@ -53,9 +53,9 @@ With `ELEVENLABS_API_KEY` in `.env` (an ElevenLabs API key that can read agents)
 | Command | What it does |
 |---|---|
 | `uv run zonia` | Chat with Sonia in the terminal. `uv run zonia <id>` continues a saved conversation. |
-| `uv run zonia-followups` | Checks every open conversation once and sends the reminders that are due. In production a scheduler (for example cron) runs it every minute. |
+| `uv run zonia-followups` | Checks every open conversation once and does the step that is due: a reminder, paused or incomplete. The reminder is saved in the conversation, and the web chat shows it when the candidate opens the chat again. It is not sent on any channel yet. In production a scheduler (for example cron) runs it every minute. |
 | `uv run pytest` | The unit tests. A stub replaces the LLM: it returns scripted replies, so the tests need no API key and no network. |
-| `uv run python evals/run.py` | The evals: 29 scripted conversations with the real LLM. See [evals/README.md](evals/README.md). |
+| `uv run python evals/run.py` | The evals: 37 scripted conversations with the real LLM. See [evals/README.md](evals/README.md). |
 | `uv run python evals/samples.py` | Writes the sample conversations in [deliverables/sample-conversations/](deliverables/sample-conversations/). |
 
 ### Variables in `.env`
@@ -84,14 +84,15 @@ A test makes sure the prompt version is right: if you change any text the LLM re
 - **A second LLM call only when needed.** When the status changes, or a value is not valid, a second call writes the reply again with a directive. Code writes the summary, so the data in it is exact.
 - **Stages:** `introduction`, `data_collection`, `closing`.
 - **Statuses:** `active`, `paused`, `qualified`, `disqualified`, `withdrawn`, `incomplete`, and `technical_error` after 2 failed turns in a row. `technical_error` is not final: a good turn makes the conversation `active` again. The dashboard highlights it, so the recruiter contacts the candidate.
-- **Storage:** SQLite keeps each conversation, its data and every message. The recruiter reads it in the dashboard.
+- **Structured data:** the screening fields are one Pydantic model, `ScreeningFields` ([src/zonia/domain/models.py](src/zonia/domain/models.py)). The LLM fills it in each turn, and it is saved as JSON.
+- **Storage:** SQLite keeps each conversation, its data as JSON and every message, so the full history is kept. The recruiter reads it in the dashboard.
 
 ## Key decisions
 
 1. **Ports and adapters.** All conversation logic is in one core. To add a channel, you write an adapter, and the core does not change.
 2. **Text first.** 60% of candidates do not answer phone calls, and WhatsApp is the main messaging app in Spain and Mexico. So the main channel is written messages. A web chat gives the same experience for the demo.
 3. **Voice in the browser through ElevenLabs.** ElevenLabs handles speech. Sonia's server stays the only "brain", so voice follows the same flow and the same checks as text.
-4. **Business settings are configuration, not code.** Service zones, the job facts Sonia may share, the greeting, the turn limit, the follow-up times, the contact emails and Sonia's personality are in [src/zonia/config.py](src/zonia/config.py).
+4. **Business settings are configuration, not code.** Service zones, the job facts Sonia may share, the greeting, the turn limit, the follow-up times and the contact emails are in [src/zonia/config.py](src/zonia/config.py). Sonia's personality is in [src/zonia/agent/sonia.yaml](src/zonia/agent/sonia.yaml).
 5. **Sonia answers only from the job facts.** Her prompt tells her to use only the job facts and to say when she does not have the information. An LLM can still invent facts, so the evals check every conversation for invented facts (rule `no_inventa` in `evals/personas.py`).
 6. **A narrow context keeps Sonia safe.** Sonia's LLM sees only what the current candidate needs: her prompt, the job facts and that candidate's own conversation. It has no tools, no database access and no private data, so a prompt injection has nothing to reach.
 7. **Spanish and English, with each country's words.** Sonia replies in the candidate's language. In Spain she says "carné de conducir" and "barrio"; in Mexico, "licencia de manejo" and "colonia".
@@ -101,8 +102,11 @@ A test makes sure the prompt version is right: if you change any text the LLM re
 
 - After a final status, keep Sonia inside the job facts: in a test she gave opinions and invented company facts.
 - Fix a wrong zone after a correction: when a candidate corrects the zone in the summary, the LLM can mark a valid zone as outside the service area.
+- Save a change of availability made in the next turn: in a test the candidate said "Tiempo completo" (full time), then "Medio tiempo por las tardes" (part time, afternoons), and the summary kept "Tiempo completo".
 - Mark a field "needs review" after 2 failed tries, so the conversation moves on.
 - Save the candidate's message before the LLM call, so a crash does not lose it.
+- Send the reminders on the candidate's channel. Today `zonia-followups` only saves them in the conversation.
+- Add a login to the recruiter dashboard. Today anyone who can reach port 8000 sees every candidate.
 - Warn the candidate before the turn limit (60 messages).
 - Voice: answer the "..." that ElevenLabs sends on silence without an LLM call, and end the call after a long silence.
 - Finish the WhatsApp channel: the adapter is written, but it is not tested with real messages. Then accept voice notes and locations.
@@ -110,5 +114,5 @@ A test makes sure the prompt version is right: if you change any text the LLM re
 
 ## Deliverables
 
-- [Process design document](https://claude.ai/artifact/HbgPjrbaGQnAesS8GQ1rss): stages, fields and validation, outcomes, edge cases, personality, and message tone.
-- [Sample conversations](deliverables/sample-conversations/README.md): 7 conversations played against the real LLM.
+- [Process design document](deliverables/process-design.html): stages, fields and validation, outcomes, edge cases, personality, and message tone. Download it and open it in a browser.
+- [Sample conversations](deliverables/sample-conversations/README.md): 11 conversations played against the real LLM, shown as a phone chat. 7 follow the normal flow, and 4 are simulated difficult candidates. Open `index.html` in that folder in a browser.

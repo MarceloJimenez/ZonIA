@@ -77,43 +77,7 @@ A test makes sure the prompt version is right: if you change any text the LLM re
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    CAND(("Candidate"))
-    EL["ElevenLabs<br/>speech to text<br/>text to speech"]
-
-    subgraph server["Sonia's server: zonia-server"]
-        direction TB
-        WEB["Web chat<br/><code>adapters/web.py</code>"]
-        VOICE["Voice<br/><code>adapters/voice.py</code>"]
-        CORE["Core: one turn<br/>the LLM reads, code decides<br/><code>agent/turn.py</code>, <code>domain/</code>"]
-        WEB --> CORE
-        VOICE --> CORE
-    end
-
-    LLM(["LLM provider"])
-    DB[("SQLite<br/><code>storage.py</code>")]
-    DASH["Recruiter dashboard<br/><code>dashboard/</code>"]
-    REC(("Recruiter"))
-
-    CAND -- "writes" --> WEB
-    CAND -- "speaks" --> EL
-    EL -- "text" --> VOICE
-    CORE <--> LLM
-    CORE -- "saves each turn" --> DB
-    DB --> DASH --> REC
-
-    classDef person fill:#a9f36b,stroke:#2f3f22,color:#222c18,stroke-width:1.5px
-    classDef ours fill:#ffffff,stroke:#2f3f22,color:#222c18,stroke-width:1.5px
-    classDef core fill:#2f3f22,stroke:#2f3f22,color:#ffffff
-    classDef external fill:#e8eedb,stroke:#6b775d,color:#3d4a31,stroke-dasharray:4 3
-    class CAND,REC person
-    class WEB,VOICE,DB,DASH ours
-    class CORE core
-    class EL,LLM external
-    style server fill:#f2f8ea,stroke:#3d7254,color:#222c18
-    linkStyle default stroke:#3d4a31,stroke-width:1.5px
-```
+![Container diagram for ZonIA (C4 model, level 2)](assets/architecture-c4-container.svg)
 
 - **One core, many channels.** Each channel has an adapter. The adapter gives the candidate's text to the core and sends the reply back on the same channel. The core does not know the channel.
 - **The LLM reads, code decides.** In each turn the LLM returns the extracted fields, the candidate's intent and a reply ([src/zonia/agent/turn.py](src/zonia/agent/turn.py)). Code then checks the values ([src/zonia/domain/validation.py](src/zonia/domain/validation.py)) and decides the stage and the status ([src/zonia/domain/flow.py](src/zonia/domain/flow.py)).

@@ -31,7 +31,7 @@ from pydantic_evals.evaluators.llm_as_a_judge import judge_output  # noqa: E402
 from zonia.config import GREETING  # noqa: E402
 from zonia.domain.flow import FINAL_STATUSES  # noqa: E402
 from zonia.domain.models import Status  # noqa: E402
-from zonia.domain.conversation import new_conversation  # noqa: E402
+from zonia.domain.conversation import Conversation, new_conversation  # noqa: E402
 from zonia.agent.turn import run_turn  # noqa: E402
 from zonia.agent.llm import SONIA, build_model, describe  # noqa: E402
 
@@ -199,13 +199,14 @@ def candidate_agent(persona: Persona) -> Agent[None, str]:
     return Agent(model, output_type=str, instructions=rules + (VOICE_STYLE if persona.voice else ""))
 
 
-async def talk(persona: Persona, lines: list[str]) -> Status:
+async def talk(persona: Persona, lines: list[str], conversation: Conversation | None = None) -> Status:
     """Run one conversation and return the final status.
 
     Each turn adds its lines ("Candidato: ...", "Sonia: ...") to `lines` at once, so a crash keeps the turns before it.
+    A caller that wants the fields and the stage passes its own `conversation`; it is filled in as the talk goes.
     """
     candidate = candidate_agent(persona)
-    conversation = new_conversation(persona.country)
+    conversation = conversation or new_conversation(persona.country)
     lines += [f"Sonia: {text}" for text in GREETING]
     for _ in range(MAX_CANDIDATE_TURNS):
         prompt = "La conversación hasta ahora:\n\n" + "\n".join(lines) + "\n\nTu próximo mensaje:"

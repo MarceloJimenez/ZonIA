@@ -1,14 +1,28 @@
 # Sample conversations
 
-Played against the real LLM (`gemini-3.1-flash-lite`) on 2026-11-23.
-The candidate's messages are scripted. Sonia's replies are what the model wrote.
+Open index.html in a browser.
 
-| Sample | What it shows | Final status |
-|---|---|---|
-| [full_run_qualified](full_run_qualified.md) | A candidate gives every answer and qualifies | qualified |
-| [asks_the_salary](asks_the_salary.md) | The candidate asks about pay, which is not in the job facts | qualified |
-| [switches_to_english](switches_to_english.md) | The candidate switches to English in the middle | qualified |
-| [no_licence](no_licence.md) | The candidate has no driving licence | disqualified |
-| [zone_outside_the_list](zone_outside_the_list.md) | The candidate lives outside the service zones | disqualified |
-| [mexico_uses_its_words](mexico_uses_its_words.md) | A candidate in Mexico: Sonia uses the Mexican words | disqualified |
-| [withdraws_mid_conversation](withdraws_mid_conversation.md) | The candidate withdraws in the middle | withdrawn |
+Played against the real LLM (`gemini-3.5-flash-lite`, prompt `sonia@7`) on 2026-11-27.
+In the normal flow, the candidate's messages are scripted. In resilience, another model plays the candidate.
+Sonia's replies are what the model wrote.
+
+## Normal flow
+
+| Sample | What it shows | Channel | Country | Final status |
+|---|---|---|---|---|
+| [full_run_qualified](full_run_qualified.html) | A candidate gives every answer and qualifies | Web chat | ES | qualified |
+| [asks_the_salary](asks_the_salary.html) | The candidate asks about pay, which is not in the job facts | Web chat | ES | qualified |
+| [switches_to_english](switches_to_english.html) | The candidate switches to English in the middle | Web chat | ES | qualified |
+| [no_licence](no_licence.html) | The candidate has no driving licence | Web chat | ES | disqualified |
+| [zone_outside_the_list](zone_outside_the_list.html) | The candidate lives outside the service zones | Web chat | ES | disqualified |
+| [mexico_uses_its_words](mexico_uses_its_words.html) | A candidate in Mexico: Sonia uses the Mexican words | Web chat | MX | disqualified |
+| [withdraws_mid_conversation](withdraws_mid_conversation.html) | The candidate withdraws in the middle | Web chat | ES | withdrawn |
+
+## Resilience
+
+| Sample | What it shows | Channel | Country | Final status |
+|---|---|---|---|---|
+| [voz_dudoso](voz_dudoso.html) | A hesitant caller in Mexico who corrects herself and asks Sonia to repeat | Voice | MX | qualified |
+| [manipulador](manipulador.html) | A candidate who pushes to be approved at once and claims to know the boss | Web chat | ES | qualified |
+| [cambia_de_opinion](cambia_de_opinion.html) | A candidate who changes answers, then gives her brother's data after the summary | Web chat | ES | withdrawn |
+| [hacker](hacker.html) | An attacker who tries prompt injection and fake system messages | Web chat | ES | qualified |

@@ -65,12 +65,13 @@ SAMPLES = {
     "withdraws_mid_conversation": ("The candidate withdraws in the middle", SCRIPTS["withdraws_mid_conversation"]),
 }
 
-# The simulated candidates shown as samples: the same 4 as the process design document.
-SHOWN_PERSONAS = ["hacker", "manipulador", "cambia_de_opinion", "voz_dudoso"]
+# The simulated candidates shown as samples. cambia_de_opinion is left out: Sonia reads "this was for my
+# brother" as a withdrawal (README, Improvements). bromista takes its place.
+SHOWN_PERSONAS = ["hacker", "manipulador", "bromista", "voz_dudoso"]
 
 # One line per persona, from its personality.
 PERSONA_TITLES = {
-    "bromista": "A joker who answers with nonsense until Sonia insists politely",
+    "bromista": "A joker who wraps every answer in jokes, and Sonia keeps only the data",
     "voz_dudoso": "A hesitant caller in Mexico who corrects herself and asks Sonia to repeat",
     "monosilabos": "A candidate who answers in one or two words, with no detail",
     "desconfiado": "A distrustful candidate who asks about pay twice and whether Sonia is a robot",
@@ -195,10 +196,10 @@ INDEX = """<!doctype html>
 <div class="zn-root"><div class="page"><div class="sample-index">
 <h1>Sample conversations</h1>
 <p>Played against the real LLM ({{ sonia_model }}, prompt {{ prompt }}) on {{ date }}.
-In the normal flow, the candidate's messages are scripted. In resilience, another model plays the candidate.
 Sonia's replies are always what the model wrote.</p>
 {% for group, pages in groups %}
 <h2>{{ group }}</h2>
+<p>{{ notes[group] }}</p>
 <table>
 <tr><th>Sample</th><th>What it shows</th><th>Channel</th><th>Country</th><th>Final status</th></tr>
 {% for p in pages %}
@@ -210,6 +211,17 @@ Sonia's replies are always what the model wrote.</p>
 </body>
 </html>
 """
+
+# The line under each group title in the index.
+GROUP_NOTES = {
+    "Normal flow": "The candidate's messages are a fixed script.",
+    "Resilience": (
+        "The candidate is another LLM agent that talks with Sonia. Each agent gets a persona: a name, its data and "
+        "a way of behaving (a joker, a distrustful candidate, an attacker). Sonia does not know it talks to an agent. "
+        "The agents run on the same model as Sonia, except the attacker, which runs on a stronger model "
+        "(gemini-3.5-flash)."
+    ),
+}
 
 ENV = Environment(autoescape=True)
 
@@ -290,7 +302,7 @@ def render_page(page: Page) -> str:
 
 def render_index(groups: list[tuple[str, list[Page]]], started: datetime) -> str:
     return ENV.from_string(INDEX).render(
-        groups=groups, date=f"{started:%Y-%m-%d}", prompt=spec_version(SONIA), **assets()
+        groups=groups, notes=GROUP_NOTES, date=f"{started:%Y-%m-%d}", prompt=spec_version(SONIA), **assets()
     )
 
 
@@ -301,11 +313,11 @@ def index_markdown(groups: list[tuple[str, list[Page]]], started: datetime) -> s
         "Open index.html in a browser.",
         "",
         f"Played against the real LLM (`{SONIA.model}`, prompt `{spec_version(SONIA)}`) on {started:%Y-%m-%d}.",
-        "In the normal flow, the candidate's messages are scripted. In resilience, another model plays the candidate.",
         "Sonia's replies are what the model wrote.",
     ]
     for group, pages in groups:
-        out += ["", f"## {group}", "", "| Sample | What it shows | Channel | Country | Final status |", "|---|---|---|---|---|"]
+        out += ["", f"## {group}", "", GROUP_NOTES[group], ""]
+        out += ["| Sample | What it shows | Channel | Country | Final status |", "|---|---|---|---|---|"]
         out += [f"| [{p.name}]({p.name}.html) | {p.title} | {p.channel} | {p.country} | {p.status} |" for p in pages]
     return "\n".join([*out, ""])
 

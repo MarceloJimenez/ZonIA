@@ -104,6 +104,7 @@ Sonia handles the normal flow well. These are the next steps, grouped by topic.
 
 **Conversation.** Some edge cases still need work.
 - Keep the corrections made at the summary. Today a changed availability can be lost, and a corrected zone can be marked as outside the service area.
+- Ask what the candidate means when they say the data was for another person ("esto era para mi hermano"). Today Sonia reads it as a withdrawal and closes the application.
 - Stay inside the job facts after a final status. In one test Sonia gave opinions and invented company facts.
 - Answer "why do you want my data?", and do not read the list of zones to a disqualified candidate.
 - Move on after 2 failed tries by marking the field "needs review", and warn the candidate before the limit of 60 messages.

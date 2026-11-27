@@ -150,3 +150,12 @@ def test_the_chosen_country_opens_a_conversation_in_that_country(db):
     assert response.status_code == 303
     storage = Storage(db)
     assert storage.load(storage.find_by_phone("+525512345678")).country == "MX"
+
+
+def test_the_apply_page_and_the_chat_link_to_the_recruiter_dashboard(db, monkeypatch):
+    monkeypatch.setenv("ZONIA_DASHBOARD_URL", "http://dashboard.test/")
+    test_client = client(db, FakeLLM([]))
+    assert '<a class="sz-demo__link" href="http://dashboard.test/" target="_blank" rel="noopener">' in test_client.get("/apply").text
+    chat_url = apply(test_client, "+34 600 111 222")
+    case_code = chat_url.rsplit("/", 1)[1]
+    assert f'href="http://dashboard.test/?view=all&amp;q={case_code}" target="_blank"' in test_client.get(chat_url).text

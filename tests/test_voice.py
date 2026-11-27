@@ -312,3 +312,9 @@ def test_the_check_fails_when_the_agent_calls_another_url_or_another_llm(db):
     refused = httpx.Response(401, json={"detail": "invalid key"})
     for answer in (other_url, other_llm, refused):
         assert not asyncio.run(check_with(own_code, answer, api_key="el-key")[0].ready())
+
+
+def test_the_voice_page_links_to_this_case_in_the_recruiter_dashboard(db):
+    test_client = client(db, FakeLLM([]))
+    case_code = apply(test_client)
+    assert f'href="http://127.0.0.1:8000/?view=all&amp;q={case_code}" target="_blank"' in test_client.get(f"/voice/{case_code}").text

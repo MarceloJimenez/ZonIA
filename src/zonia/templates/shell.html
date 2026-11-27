@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{# The recruiter dashboard: a dark sidebar like an Orbio AI product, and the page on the right. #}
+{% block root_class %}zn-app{% endblock %}
+{% block content %}
+<aside class="zn-side">
+<div class="zn-side__brand">
+<span class="zn-side__logo">Orbio AI</span>
+<span class="zn-side__module">ZonIA · Recruiter</span>
+</div>
+
+{# The country chooser filters the list on the right and keeps the view (to call or all). #}
+{% set on_list = view is defined %}
+{% set chosen_country = filters.country if on_list else none %}
+{% set view_query = "view=all&" if on_list and view == "all" else "" %}
+<div class="zn-side__group">
+<div class="zn-side__label">Country</div>
+<ul class="zn-nav">
+{% for code, name in [(none, "All"), ("MX", "Mexico"), ("ES", "Spain")] %}
+{% set query = view_query ~ ("country=" ~ code if code else "") %}
+<li><a class="zn-nav__item" href="/{{ '?' ~ query.rstrip('&') if query else '' }}"{% if on_list and code == chosen_country %} aria-current="page"{% endif %}><span>{{ code or "··" }}</span>{{ name }}</a></li>
+{% endfor %}
+</ul>
+</div>
+
+<div class="zn-side__group">
+<div class="zn-side__label">Demo</div>
+<ul class="zn-nav">
+<li><a class="zn-nav__item" href="{{ apply_url }}"><span>↗</span>Candidate job page</a></li>
+</ul>
+</div>
+
+<div class="zn-side__group">
+<div class="zn-side__label">Agents</div>
+<div class="zn-agent">
+<img class="zn-agent__photo" src="{{ url_for('static', path='sonia.jpg') }}" alt="">
+<div class="zn-agent__text">
+<strong>Sonia</strong>
+<span>Screening agent</span>
+<span class="zn-agent__state"><span class="zn-dot"></span>Chat · WhatsApp · Voice</span>
+</div>
+</div>
+</div>
+
+<div class="zn-side__foot">
+<div class="zn-side__label">Working for</div>
+<strong>Grupo Sazón</strong>
+<span>Delivery riders · ES, MX</span>
+</div>
+</aside>
+<main class="zn-main">
+{% block main %}{% endblock %}
+</main>
+{% endblock %}

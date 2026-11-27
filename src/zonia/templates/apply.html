@@ -1,37 +1,89 @@
 {% extends "base.html" %}
 {% block lang %}es{% endblock %}
 {% block title %}Trabaja con nosotros · Grupo Sazón{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=Inter:wght@300;400;500;600&display=swap">
+{% endblock %}
+{% block root_class %}sz-root{% endblock %}
 {% block content %}
-<div class="page-head">
-<div class="zn-eyebrow">Grupo Sazón · Empleo</div>
-<h1>Repartidor</h1>
+<div class="sz-demo" role="note">Prototipo de demostración · No es una página oficial de Grupo Sazón<a class="sz-demo__link" href="{{ dashboard_url }}/" target="_blank" rel="noopener">Panel del reclutador →</a></div>
+<header class="sz-header">
+<div class="sz-header__brand" data-watermark="Demostración"><img class="sz-header__logo" src="{{ url_for('static', path='sazon/logo.png') }}" alt="Grupo Sazón"></div>
+<nav class="sz-nav" aria-label="Principal">
+<a href="#inicio">Inicio</a>
+<a href="#puesto">El puesto</a>
+<a href="#como-funciona">Cómo funciona</a>
+<a href="#solicitud" aria-current="page">Trabaja con nosotros</a>
+</nav>
+</header>
+
+<section class="sz-hero" id="inicio">
+<div class="sz-hero__inner">
+<div class="sz-hero__text">
+<p class="sz-hero__eyebrow">Grupo Sazón · Empleo</p>
+<h1>Únete a nuestro equipo de reparto</h1>
+<span class="sz-rule"></span>
+<p>Más de 15 años ofreciendo gastronomía mexicana con calidad, cariño y honradez. Ahora buscamos repartidores en España y en México.</p>
+<a class="sz-btn sz-btn--light" href="#como-funciona">Cómo funciona</a>
 </div>
-<div class="zn-panel zn-apply">
-<div class="zn-panel__hd">Sobre el puesto</div>
-{% for fact in facts %}
-<div class="zn-panel__row">{{ fact }}</div>
-{% endfor %}
-<form class="zn-apply__form" method="post" action="/applications">
-<fieldset class="zn-apply__countries">
+
+<div class="sz-card" id="solicitud">
+<h2>Solicita el puesto de repartidor</h2>
+<p class="sz-card__lead">Deja tu teléfono y habla con nuestra asistente. Solo toma unos minutos.</p>
+<form class="sz-form" method="post" action="/applications">
+<fieldset class="sz-form__countries">
 <legend>¿Dónde quieres trabajar?</legend>
 {% for c in countries %}
-<label class="zn-apply__country">
+<label class="sz-form__country">
 <input type="radio" name="country" value="{{ c.code }}" data-phone="{{ c.demo_phone }}"{% if c.code == country %} checked{% endif %} required>
 <span><strong>{{ c.name }}</strong><small>Zonas: {{ c.zones | join(", ") }}</small></span>
 </label>
 {% endfor %}
 </fieldset>
-<label for="phone">Tu número de teléfono, con el prefijo del país</label>
+<label class="sz-form__label" for="phone">Tu número de teléfono, con el prefijo del país</label>
 <input id="phone" name="phone" type="tel" value="{{ phone }}" placeholder="+34 600 000 000" autocomplete="tel" required>
-{% if error %}<p class="zn-apply__error" role="alert">{{ error }}</p>{% endif %}
-<p class="zn-apply__hint">¿Cómo quieres hablar con nosotros?</p>
-<div class="zn-apply__channels">
-<button class="zn-btn zn-btn--primary" type="submit" name="channel" value="chat">Por chat</button>
-<button class="zn-btn zn-btn--primary" type="submit" name="channel" value="voice"{% if not voice_on %} disabled{% endif %}>Por voz</button>
+{% if error %}<p class="sz-form__error" role="alert">{{ error }}</p>{% endif %}
+<p class="sz-form__label">¿Cómo quieres hablar con nosotros?</p>
+<div class="sz-form__channels">
+<button class="sz-btn sz-btn--dark" type="submit" name="channel" value="chat">Por chat</button>
+<button class="sz-btn sz-btn--dark" type="submit" name="channel" value="voice"{% if not voice_on %} disabled{% endif %}>Por voz</button>
 </div>
-{% if not voice_on %}<p class="zn-apply__note">La voz no está configurada: añade ELEVENLABS_AGENT_ID, ELEVENLABS_LLM_KEY y ZONIA_PUBLIC_URL en .env. Ver README.</p>{% endif %}
+{% if not voice_on %}<p class="sz-form__note">La voz no está configurada: añade ELEVENLABS_AGENT_ID, ELEVENLABS_LLM_KEY y ZONIA_PUBLIC_URL en .env. Ver README.</p>{% endif %}
 </form>
 </div>
+</div>
+</section>
+
+<section class="sz-band" id="como-funciona">
+<h2 class="sz-title">¿Cómo funciona?</h2>
+<span class="sz-rule sz-rule--dark"></span>
+<p class="sz-band__lead">Un proceso de selección corto, sin formularios largos ni esperas.</p>
+<ol class="sz-steps">
+<li><span class="sz-steps__n">01</span><h3>Deja tu teléfono</h3><p>Elige el país donde quieres trabajar y escribe tu número.</p></li>
+<li><span class="sz-steps__n">02</span><h3>Habla con nuestra asistente</h3><p>Responde unas preguntas breves por chat o por voz, cuando te venga bien.</p></li>
+<li><span class="sz-steps__n">03</span><h3>Te contactamos</h3><p>Nuestro equipo revisa tu solicitud y te dice los siguientes pasos.</p></li>
+</ol>
+</section>
+
+<section class="sz-job" id="puesto">
+<img class="sz-job__photo" src="{{ url_for('static', path='sazon/tacos.jpg') }}" alt="">
+<div class="sz-job__text">
+<h2 class="sz-title">Repartidor</h2>
+<span class="sz-rule sz-rule--dark sz-rule--left"></span>
+<ul class="sz-job__facts">
+{% for fact in facts %}
+<li>{{ fact }}</li>
+{% endfor %}
+</ul>
+<a class="sz-btn sz-btn--outline" href="#solicitud">Solicitar ahora</a>
+</div>
+</section>
+
+<footer class="sz-footer">
+<p class="sz-footer__title">Gastronomía mexicana en España y en México</p>
+<p>Prototipo de demostración. No es una página oficial de Grupo Sazón ni una oferta de empleo real.</p>
+</footer>
+
 <script>
 // A demo number changes with the country, so it keeps the right prefix. A number the candidate typed stays.
 const phone = document.getElementById("phone");

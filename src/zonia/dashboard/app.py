@@ -73,10 +73,20 @@ def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) ->
             pool = every
             shown = [c for c in every if filters.matches(c)]
             shown.sort(key=lambda c: c.status != Status.QUALIFIED)  # qualified first; sort is stable, so newest next
+        # The tiles above the list count the conversations of the country chosen in the sidebar (all countries
+        # when none is chosen), whatever the view and the other filters.
+        in_country = [c for c in every if filters.country in (None, c.country)]
+        stats = {
+            "conversations": len(in_country),
+            "active": sum(c.status == Status.ACTIVE for c in in_country),
+            "qualified": sum(c.status == Status.QUALIFIED for c in in_country),
+            "to_call": sum(to_call(c) for c in in_country),
+        }
         options = {
             "status": [(s.value, status_label(s)) for s in Status],
             "country": [(country, country) for country in SERVICE_ZONES],
-            "zone": SERVICE_ZONES,  # grouped by country in the template
+            # Grouped by country in the template; only the chosen country's zones once one is chosen.
+            "zone": {k: v for k, v in SERVICE_ZONES.items() if filters.country in (None, k)},
             "availability": list(AVAILABILITY["en"].items()),
             "schedule": list(SCHEDULE["en"].items()),
         }
@@ -90,6 +100,7 @@ def create_app(db_path: str | Path, clock: Callable[[], datetime] = _utc_now) ->
                 "filters": filters,
                 "options": options,
                 "outside_zone": OUTSIDE_ZONE,
+                "stats": stats,
             },
         )
 

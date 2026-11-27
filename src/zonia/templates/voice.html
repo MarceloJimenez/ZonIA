@@ -2,34 +2,37 @@
 {% block lang %}es{% endblock %}
 {% block title %}Sonia · Voz{% endblock %}
 {% block content %}
-<div class="zn-cpanel zn-webchat">
-<div class="zn-cpanel__hd">
-<div class="zn-cpanel__title"><span class="zn-dot"></span>Sonia · Grupo Sazón · Voz</div>
-<a class="zn-webchat__link" href="/apply">Volver al inicio</a>
+<div class="zn-stage">
+<div class="zn-phone">
+<div class="zn-phone__screen zn-phcall">
+<div class="zn-phone__status"><span>9:41</span><span class="zn-phone__island"></span><span class="zn-phone__signal">●●●●</span></div>
+<div class="zn-phcall__top">
+<span class="zn-phcall__timer" id="timer">0:00</span>
+<h1 class="zn-phcall__name">Sonia</h1>
+<span class="zn-phcall__role">Agente de selección</span>
+<div class="zn-orb" id="orb" data-state="idle" data-muted="false" aria-hidden="true">
+<img src="{{ url_for('static', path='sonia.jpg') }}" alt="">
+<svg class="zn-orb__mic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4M3 3l18 18"/></svg>
 </div>
-<div class="zn-cpanel__body zn-webchat__body">
-<div class="zn-chat" id="chat">
+<div class="zn-bars" id="bars" aria-hidden="true">{% for h in [0.5, 0.9, 0.7, 1.0, 0.6, 0.85, 0.55, 0.95, 0.65] %}<span style="--h: {{ h }}"></span>{% endfor %}</div>
+<p class="zn-phcall__status" id="status" aria-live="polite">Pulsa "Llamar" y permite el micrófono.</p>
+</div>
+<div class="zn-phcall__log">
+<div class="zn-bubbles" id="chat">
 {% for role, text in messages %}
-{% if role == "agent" %}
-<div class="zn-msg"><div class="zn-msg__who">Sonia</div><p class="zn-msg__text">{{ text }}</p></div>
-{% else %}
-<div class="zn-msg zn-msg--me"><div class="zn-msg__who">Tú</div><p class="zn-msg__text">{{ text }}</p></div>
-{% endif %}
+<p class="zn-bubble {{ 'zn-bubble--agent' if role == 'agent' else 'zn-bubble--me' }}">{{ text }}</p>
 {% endfor %}
 </div>
 </div>
-<div class="zn-voice">
-<div class="zn-orb" id="orb" data-state="idle" data-muted="false" aria-hidden="true">
-<svg class="zn-orb__mic" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4M3 3l18 18"/></svg>
-</div>
-<p class="zn-voice__status" id="status" aria-live="polite">Pulsa "Hablar" y permite el micrófono.</p>
-<div class="zn-voice__controls">
-<button class="zn-btn zn-btn--primary" id="start" type="button">Hablar</button>
-<button class="zn-btn" id="mute" type="button" aria-pressed="false" disabled>Silenciar</button>
-<button class="zn-btn zn-btn--hangup" id="stop" type="button" disabled>Colgar</button>
-<a class="zn-btn" id="home" href="/apply" hidden>Volver al inicio</a>
+<div class="zn-phcall__controls">
+<button class="zn-callbtn zn-callbtn--go" id="start" type="button"><span class="zn-callbtn__icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg></span><span class="zn-callbtn__label">Llamar</span></button>
+<button class="zn-callbtn" id="mute" type="button" aria-pressed="false" disabled><span class="zn-callbtn__icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4"/></svg></span><span class="zn-callbtn__label">Silenciar</span></button>
+<button class="zn-callbtn zn-callbtn--end" id="stop" type="button" disabled><span class="zn-callbtn__icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span class="zn-callbtn__label">Colgar</span></button>
+<a class="zn-callbtn" id="home" href="/apply" hidden><span class="zn-callbtn__icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span><span class="zn-callbtn__label">Inicio</span></a>
 </div>
 </div>
+</div>
+<p class="zn-stage__caption">Llamada de voz · Sonia, Grupo Sazón <a href="/apply">Volver al inicio</a> <a href="{{ dashboard_url }}/?view=all&amp;q={{ case_code }}" target="_blank" rel="noopener">Ver en el panel del reclutador</a></p>
 </div>
 <script type="module">
 // ElevenLabs turns speech into text and calls /voice/chat/completions; the case code goes as extra body.
@@ -46,6 +49,9 @@ const stop = document.getElementById("stop");
 const home = document.getElementById("home");
 const mute = document.getElementById("mute");
 const orb = document.getElementById("orb");
+const bars = document.getElementById("bars");
+const timer = document.getElementById("timer");
+const label = (button, text) => { button.querySelector(".zn-callbtn__label").textContent = text; };
 let conversation = null;
 let greeted = false;
 let muted = false;
@@ -55,10 +61,21 @@ let frame = 0;
 let hangingUp = false;  // the candidate pressed "Colgar": the call ends normally
 let broken = false;  // the break is already handled, so the notice comes once
 let replyTimer = 0;
+let clock = 0;  // counts the call time, like a phone
+
+function startClock() {
+  const begin = Date.now();
+  clearInterval(clock);
+  clock = setInterval(() => {
+    const seconds = Math.floor((Date.now() - begin) / 1000);
+    timer.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  }, 1000);
+}
 
 // The circle shows the turn: connecting, speaking, listening or ended. data-muted adds the crossed microphone.
 function show(state, text) {
   orb.dataset.state = state;
+  bars.dataset.active = String(state === "speaking" || (state === "listening" && !muted));
   if (text) status.textContent = text;
 }
 
@@ -67,7 +84,7 @@ function showTurn() {
   else show("listening", muted ? "Micrófono silenciado. Sonia no te oye." : "Te escucho…");
 }
 
-// Each frame, the circle grows with the volume of whoever has the turn (0 to 1).
+// Each frame, the photo and the bars move with the volume of whoever has the turn (0 to 1).
 function animate() {
   if (!conversation) return;
   let volume = 0;
@@ -78,7 +95,9 @@ function animate() {
     volume = 0;
   }
   level += (volume - level) * 0.3;
-  orb.style.setProperty("--level", Math.min(1, level * 1.6).toFixed(3));
+  const shown = Math.min(1, level * 1.6).toFixed(3);
+  orb.style.setProperty("--level", shown);
+  bars.style.setProperty("--level", shown);
   frame = requestAnimationFrame(animate);
 }
 
@@ -87,21 +106,15 @@ function setMuted(value) {
   conversation?.setMicMuted(muted);
   orb.dataset.muted = String(muted);
   mute.setAttribute("aria-pressed", String(muted));
-  mute.textContent = muted ? "Activar micrófono" : "Silenciar";
+  label(mute, muted ? "Activar" : "Silenciar");
   if (conversation) showTurn();
 }
 
 // Adds each message with textContent, never as HTML.
-function add(who, text, mine) {
-  const msg = document.createElement("div");
-  msg.className = mine ? "zn-msg zn-msg--me" : "zn-msg";
-  const name = document.createElement("div");
-  name.className = "zn-msg__who";
-  name.textContent = who;
-  const body = document.createElement("p");
-  body.className = "zn-msg__text";
-  body.textContent = text;
-  msg.append(name, body);
+function add(text, mine) {
+  const msg = document.createElement("p");
+  msg.className = mine ? "zn-bubble zn-bubble--me" : "zn-bubble zn-bubble--agent";
+  msg.textContent = text;
   chat.append(msg);
   msg.scrollIntoView({block: "end"});
 }
@@ -109,15 +122,17 @@ function add(who, text, mine) {
 function ended(text) {
   conversation = null;
   clearTimeout(replyTimer);
+  clearInterval(clock);
   cancelAnimationFrame(frame);
   orb.style.setProperty("--level", 0);
+  bars.style.setProperty("--level", 0);
   setMuted(false);
   mute.disabled = true;
   show("ended", text);
   start.disabled = false;
   stop.disabled = true;
   // After a call: call again (Sonia starts with her last message) or go back to the job page.
-  start.textContent = "Llamar de nuevo";
+  label(start, "Llamar de nuevo");
   home.hidden = false;
 }
 
@@ -161,7 +176,7 @@ async function callBroke() {
     show("ended", "Llamada terminada.");
     return;
   }
-  add("Sonia", notice, false);
+  add(notice, false);
   speak(notice);
   show("ended", "Problema técnico. Lee el mensaje de Sonia.");
 }
@@ -186,7 +201,7 @@ start.addEventListener("click", async () => {
       connectionType: "websocket",
       customLlmExtraBody: {case_code: settings.caseCode},
       overrides: {agent: {firstMessage: settings.firstMessage}},
-      onConnect: () => { show("listening", "Habla cuando quieras."); stop.disabled = false; mute.disabled = false; },
+      onConnect: () => { show("listening", "Habla cuando quieras."); startClock(); stop.disabled = false; mute.disabled = false; },
       onDisconnect: (details) => {
         if (broken) return;
         if (hangingUp || details?.reason === "user") ended("Llamada terminada.");
@@ -205,7 +220,7 @@ start.addEventListener("click", async () => {
         // The first message is Sonia's last message, already on the page.
         if (source === "ai" && !greeted) { greeted = true; return; }
         if (source === "ai") settings.firstMessage = message;
-        add(source === "user" ? "Tú" : "Sonia", message, source === "user");
+        add(message, source === "user");
       },
     });
     frame = requestAnimationFrame(animate);

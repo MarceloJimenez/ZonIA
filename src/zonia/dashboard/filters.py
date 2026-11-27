@@ -19,8 +19,9 @@ class Filters:
 
     @property
     def chosen(self) -> int:
-        """How many of the five lists have a value. The search is not counted: it is always in sight."""
-        return sum(v is not None for v in (self.status, self.country, self.zone, self.availability, self.schedule))
+        """How many of the lists in the filter menu have a value. The search and the country are not counted:
+        both are always in sight (the country is chosen in the sidebar)."""
+        return sum(v is not None for v in (self.status, self.zone, self.availability, self.schedule))
 
     def matches(self, c: ConversationRow) -> bool:
         f = c.fields

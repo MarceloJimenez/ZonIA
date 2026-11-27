@@ -2,70 +2,80 @@
 {% block lang %}es{% endblock %}
 {% block title %}Sonia · Grupo Sazón{% endblock %}
 {% block content %}
-<div class="zn-cpanel zn-webchat">
-<div class="zn-cpanel__hd">
-<div class="zn-cpanel__title"><span class="zn-dot"></span>Sonia · Grupo Sazón</div>
-<a class="zn-webchat__link" href="/apply">Volver al inicio</a>
+<div class="zn-stage">
+<div class="zn-phone">
+<div class="zn-phone__screen">
+<div class="zn-phone__status"><span>9:41</span><span class="zn-phone__island"></span><span class="zn-phone__signal">●●●●</span></div>
+<div class="zn-phchat__hd">
+<img class="zn-avatar" src="{{ url_for('static', path='sonia.jpg') }}" alt="">
+<span class="zn-phchat__name">Sonia</span>
+<span class="zn-phchat__tag" id="clock">Grupo Sazón</span>
 </div>
-<div class="zn-cpanel__body zn-webchat__body">
-<div class="zn-chat" id="chat">
+<div class="zn-phchat__body">
+<div class="zn-bubbles" id="chat">
 {% for role, text in messages %}
-{% if role == "agent" %}
-<div class="zn-msg"><div class="zn-msg__who">Sonia</div><p class="zn-msg__text">{{ text }}</p></div>
-{% else %}
-<div class="zn-msg zn-msg--me"><div class="zn-msg__who">Tú</div><p class="zn-msg__text">{{ text }}</p></div>
-{% endif %}
+<p class="zn-bubble {{ 'zn-bubble--agent' if role == 'agent' else 'zn-bubble--me' }}">{{ text }}</p>
 {% endfor %}
 </div>
 </div>
-<form class="zn-webchat__form" id="send" action="/chat/{{ case_code }}/messages" method="post">
-<input name="text" id="text" autocomplete="off" placeholder="Escribe tu mensaje" aria-label="Tu mensaje" required>
-<button class="zn-btn zn-btn--primary" type="submit">Enviar</button>
+<form class="zn-phchat__form" id="send" action="/chat/{{ case_code }}/messages" method="post">
+<input name="text" id="text" autocomplete="off" placeholder="Mensaje" aria-label="Tu mensaje" required>
+<button class="zn-phchat__send" type="submit" aria-label="Enviar"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
 </form>
 </div>
+</div>
+<p class="zn-stage__caption">Chat web · Sonia, Grupo Sazón <a href="/apply">Volver al inicio</a> <a href="{{ dashboard_url }}/?view=all&amp;q={{ case_code }}" target="_blank" rel="noopener">Ver en el panel del reclutador</a></p>
+</div>
 <script>
+// The tag under the name shows the channel and the time, like a messaging app.
+document.getElementById("clock").textContent = `Web · ${new Date().toLocaleTimeString("es", {hour: "2-digit", minute: "2-digit"})}`;
 // Adds each message with textContent, never as HTML.
 const chat = document.getElementById("chat");
 const form = document.getElementById("send");
 const input = document.getElementById("text");
 const button = form.querySelector("button");
-const panel = chat.parentElement; // the part of the page that scrolls
+const panel = chat.parentElement; // the part of the phone screen that scrolls
 
 function scrollToEnd() {
   panel.scrollTop = panel.scrollHeight;
 }
 
-function add(who, text, mine) {
-  const msg = document.createElement("div");
-  msg.className = mine ? "zn-msg zn-msg--me" : "zn-msg";
-  const name = document.createElement("div");
-  name.className = "zn-msg__who";
-  name.textContent = who;
-  const body = document.createElement("p");
-  body.className = "zn-msg__text";
-  body.textContent = text;
-  msg.append(name, body);
+function add(text, mine) {
+  const msg = document.createElement("p");
+  msg.className = mine ? "zn-bubble zn-bubble--me" : "zn-bubble zn-bubble--agent";
+  msg.textContent = text;
   chat.append(msg);
   scrollToEnd();
   return msg;
+}
+
+// Sonia's bubble shows "Escribiendo…" until her reply comes.
+function typing() {
+  const msg = add("Escribiendo…", false);
+  msg.classList.add("zn-bubble--typing");
+  return msg;
+}
+
+function fill(msg, text) {
+  msg.classList.remove("zn-bubble--typing");
+  msg.textContent = text;
+  scrollToEnd();
 }
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const text = input.value.trim();
   if (!text) return;
-  add("Tú", text, true);
+  add(text, true);
   input.value = "";
   input.disabled = button.disabled = true;
-  const typing = add("Sonia", "Escribiendo…", false);
+  const reply = typing();
   try {
     const response = await fetch(form.action, {method: "POST", body: new URLSearchParams({text})});
     if (!response.ok) throw new Error(response.status);
-    typing.querySelector(".zn-msg__text").textContent = (await response.json()).reply;
-    scrollToEnd();
+    fill(reply, (await response.json()).reply);
   } catch (error) {
-    typing.querySelector(".zn-msg__text").textContent = "No pude enviar tu mensaje. Inténtalo de nuevo.";
-    scrollToEnd();
+    fill(reply, "No pude enviar tu mensaje. Inténtalo de nuevo.");
   } finally {
     input.disabled = button.disabled = false;
     input.focus();
@@ -77,15 +87,14 @@ const pause = (ms) => new Promise((done) => setTimeout(done, ms));
 
 async function typeGreeting() {
   const greeting = [...chat.children];
-  if (greeting.some((msg) => msg.classList.contains("zn-msg--me"))) return;
-  const texts = greeting.map((msg) => msg.querySelector(".zn-msg__text").textContent);
+  if (greeting.some((msg) => msg.classList.contains("zn-bubble--me"))) return;
+  const texts = greeting.map((msg) => msg.textContent);
   chat.replaceChildren();
   input.disabled = button.disabled = true;
   for (const text of texts) {
-    const msg = add("Sonia", "Escribiendo…", false);
+    const msg = typing();
     await pause(1500);
-    msg.querySelector(".zn-msg__text").textContent = text;
-    scrollToEnd();
+    fill(msg, text);
     await pause(400);
   }
   input.disabled = button.disabled = false;

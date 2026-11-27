@@ -83,13 +83,14 @@ def test_the_filters_show_only_the_matching_candidates(client, query, shown):
 
 def test_the_form_keeps_the_chosen_filters(client):
     html = client.get("/?view=all&country=ES&zone=Comunidad+de+Madrid&q=ana").text
-    assert '<option value="ES" selected>' in html
+    assert '<input type="hidden" name="country" value="ES">' in html
     assert '<option value="Comunidad de Madrid" selected>' in html
     assert 'value="ana"' in html
 
 
 def test_the_filter_icon_shows_how_many_lists_are_chosen(client):
-    assert '<span class="filter-count">2</span>' in client.get("/?view=all&country=ES&schedule=morning&q=ana").text
+    # The country is chosen in the sidebar, so the icon does not count it.
+    assert '<span class="filter-count">1</span>' in client.get("/?view=all&country=ES&schedule=morning&q=ana").text
     html = client.get("/?view=all&q=ana").text
     assert "filter-count" not in html
     assert ">Clear</a>" in html
@@ -319,3 +320,40 @@ def test_a_wait_of_a_day_or_more_is_marked_late(tmp_path):
     assert '<td class="soft nowrap late">1 d</td>' in late
     on_time = TestClient(create_app(path, clock=lambda: saved + timedelta(hours=23))).get("/?view=all").text
     assert '<td class="soft nowrap">23 h</td>' in on_time
+
+
+@pytest.mark.parametrize(
+    "query, tiles",
+    [
+        ("/?view=all&status=active&q=luis", [3, 1, 1, 1]),  # the other filters do not change the tiles
+        ("/?view=all&country=ES", [2, 1, 1, 1]),
+        ("/?view=all&country=MX", [1, 0, 0, 0]),  # only Marta Gil, disqualified
+    ],
+)
+def test_the_tiles_count_the_conversations_of_the_chosen_country(client, query, tiles):
+    html = client.get(query).text
+    for label, count in zip(["Conversations", "In progress", "Qualified", "To call"], tiles):
+        assert f'<span class="zn-stat__label">{label}</span><strong>{count}</strong>' in html
+
+
+def test_the_sidebar_chooses_the_country_and_keeps_the_view(client):
+    html = client.get("/?view=all&country=MX").text
+    assert '<a class="zn-nav__item" href="/?view=all&amp;country=MX" aria-current="page"><span>MX</span>Mexico</a>' in html
+    assert 'href="/?view=all&amp;country=ES"><span>ES</span>Spain</a>' in html
+    assert 'href="/?view=all"><span>··</span>All</a>' in html
+    assert "Marta Gil" in html and "Luis Pérez" not in html
+    assert 'href="/?country=MX"' in html  # the To call tab keeps the country
+    assert "Comunidad de Madrid" not in html  # the zone list has only Mexico's zones
+
+
+def test_the_sidebar_on_the_to_call_view_and_on_the_candidate_page(client):
+    assert 'href="/" aria-current="page"><span>··</span>All</a>' in client.get("/").text
+    detail = client.get("/conversations/1").text
+    assert 'href="/?country=ES"><span>ES</span>Spain</a>' in detail
+    assert 'aria-current="page"><span>' not in detail
+
+
+def test_the_sidebar_links_to_the_candidate_job_page(db, monkeypatch):
+    assert 'href="http://127.0.0.1:8001/apply"><span>↗</span>Candidate job page</a>' in TestClient(create_app(db)).get("/").text
+    monkeypatch.setenv("ZONIA_APPLY_URL", "https://demo.test/apply")
+    assert 'href="https://demo.test/apply"' in TestClient(create_app(db)).get("/conversations/1").text

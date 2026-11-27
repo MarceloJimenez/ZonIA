@@ -1,6 +1,6 @@
-{% extends "base.html" %}
+{% extends "shell.html" %}
 {% block title %}{{ row.name }} · ZonIA recruiter{% endblock %}
-{% block content %}
+{% block main %}
 <a class="back" href="/">← All candidates</a>
 
 <div class="page-head">
@@ -41,7 +41,7 @@
 <div class="zn-panel__hd"><span>Screening fields</span></div>
 <dl class="field-grid">
 {% for label, value in fields %}
-<div><dt>{{ label }}</dt><dd{{ ' class="empty"' if value == "—" }}>{{ value }}</dd></div>
+<div><dt>{{ label }}</dt><dd{% if value == "—" %} class="empty"{% endif %}>{{ value }}</dd></div>
 {% endfor %}
 </dl>
 </div>
@@ -56,6 +56,15 @@
 </div>
 <div class="side">
 
+<div class="zn-panel zn-agentcard">
+<img class="zn-agent__photo" src="{{ url_for('static', path='sonia.jpg') }}" alt="">
+<div class="zn-agent__text">
+<span class="zn-agentcard__label">Screening agent</span>
+<strong>Sonia</strong>
+<span>{{ messages | length }} messages · stage: {{ row.stage }}</span>
+</div>
+</div>
+
 <div class="zn-cpanel transcript">
 <div class="zn-cpanel__hd">
 <div class="zn-cpanel__title"><span class="zn-dot"></span>Transcript · {{ messages | length }} messages</div>
@@ -66,7 +75,7 @@
 <div class="zn-chat">
 {% for role, text in messages %}
 {% if role == "agent" %}
-<div class="zn-msg"><div class="zn-msg__who">Sonia <span>· screening agent</span></div><p class="zn-msg__text">{{ text }}</p></div>
+<div class="zn-msg"><div class="zn-msg__who"><img class="zn-msg__photo" src="{{ url_for('static', path='sonia.jpg') }}" alt="">Sonia <span>· screening agent</span></div><p class="zn-msg__text">{{ text }}</p></div>
 {% else %}
 <div class="zn-msg zn-msg--me"><div class="zn-msg__who">Candidate</div><p class="zn-msg__text">{{ text }}</p></div>
 {% endif %}
